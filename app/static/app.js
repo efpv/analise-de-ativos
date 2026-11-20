@@ -32,6 +32,7 @@ const periodLabels = {
 let priceChart;
 let dividendChart;
 let comparisonRequestId = 0;
+let rankingItems = null;
 
 function setComparisonTickerButtonsDisabled(disabled) {
   document.querySelectorAll(".comparison-ticker").forEach((button) => {
@@ -337,16 +338,33 @@ function renderRanking(items) {
   });
 }
 
+function sortRanking(items, order) {
+  const classifications = {
+    "Muito Barata": 0,
+    "Barata": 1,
+    "Justa": 2,
+    "Cara": 3,
+    "Muito Cara": 4,
+  };
+  return [...items].sort((a, b) => {
+    if (order === "dy") return b.dividend_yield - a.dividend_yield;
+    if (order === "classificacao") {
+      return classifications[a.status] - classifications[b.status] || b.margem_seguranca - a.margem_seguranca;
+    }
+    return b.margem_seguranca - a.margem_seguranca;
+  });
+}
+
 async function loadRanking() {
   rankingSkeleton.hidden = false;
   rankingMessage.textContent = "";
   document.getElementById("ranking-refresh").disabled = true;
   const rate = Number(document.getElementById("taxa").value) / 100;
-  const order = document.getElementById("ranking-order").value;
   try {
     const period = document.getElementById("periodo").value;
-    const data = await requestJson(`/api/v1/ranking?ordem=${encodeURIComponent(order)}&taxa=${encodeURIComponent(rate)}&periodo=${encodeURIComponent(period)}`);
-    renderRanking(data.itens);
+    const data = await requestJson(`/api/v1/ranking?ordem=potencial&taxa=${encodeURIComponent(rate)}&periodo=${encodeURIComponent(period)}`);
+    rankingItems = data.itens;
+    renderRanking(sortRanking(rankingItems, document.getElementById("ranking-order").value));
     rankingMessage.textContent = resultWarnings(data, period).join(" ");
   } catch (error) {
     rankingMessage.textContent = error instanceof Error ? error.message : "Não foi possível carregar o ranking.";
@@ -357,7 +375,9 @@ async function loadRanking() {
 }
 
 document.getElementById("ranking-refresh").addEventListener("click", loadRanking);
-document.getElementById("ranking-order").addEventListener("change", loadRanking);
+document.getElementById("ranking-order").addEventListener("change", (event) => {
+  if (rankingItems !== null) renderRanking(sortRanking(rankingItems, event.target.value));
+});
 if (window.location.pathname === "/ranking" && !rankingSection.hidden) {
   window.addEventListener("load", () => {
     window.setTimeout(() => document.getElementById("ranking").scrollIntoView(), 0);
