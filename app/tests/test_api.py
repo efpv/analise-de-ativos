@@ -13,7 +13,8 @@ from app.models.valuation import AssetData, DividendPayment
 from app.services.valuation_service import ValuationService
 
 
-def test_home_page():
+def test_home_page(monkeypatch):
+    monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=False))
     client = TestClient(app)
     response = client.get("/")
     assert response.status_code == 200
@@ -21,12 +22,34 @@ def test_home_page():
     assert "Dados utilizados no cálculo" in response.text
     assert "Ranking Bazin" in response.text
     assert response.text.index('id="comparacao"') < response.text.index('id="ranking"')
+    assert 'id="ranking" class="page-section dashboard-section" hidden' in response.text
+    assert "O Ranking Bazin está temporariamente desativado" in response.text
 
 
 def test_ranking_page():
     response = TestClient(app).get("/ranking")
     assert response.status_code == 200
     assert "ranking-body" in response.text
+
+
+def test_enabled_ranking_is_visible(monkeypatch):
+    monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=True))
+    response = TestClient(app).get("/")
+    assert 'id="ranking" class="page-section dashboard-section">' in response.text
+    assert '<a href="/ranking">Ranking Bazin</a>' in response.text
+    assert "O Ranking Bazin está temporariamente desativado" not in response.text
+
+
+def test_disabled_ranking_does_not_calculate_assets(monkeypatch):
+    monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=False))
+
+    def unexpected_calculation(*args):
+        pytest.fail("Ranking desativado não deve consultar ativos")
+
+    monkeypatch.setattr(routes, "_calculate", unexpected_calculation)
+    response = TestClient(app).get("/api/v1/ranking")
+    assert response.status_code == 503
+    assert "temporariamente desativado" in response.json()["detail"]
 
 
 def test_invalid_ticker_endpoint():
@@ -139,6 +162,7 @@ def test_comparison_rejects_invalid_ticker():
 
 
 def test_ranking_sorts_by_requested_order(monkeypatch):
+    monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=True))
     history = {2021: 1.0, 2022: 2.0, 2023: 3.0, 2024: 4.0, 2025: 5.0}
     prices = {"BBAS3": 20, "BBSE3": 40, "ITSA4": 50, "PETR4": 100}
 
@@ -159,6 +183,7 @@ def test_ranking_sorts_by_requested_order(monkeypatch):
 
 @pytest.mark.parametrize("order", ["dy", "classificacao"])
 def test_ranking_supports_all_other_orders(monkeypatch, order):
+    monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=True))
     history = {2021: 1.0, 2022: 2.0, 2023: 3.0, 2024: 4.0, 2025: 5.0}
     prices = {"BBAS3": 20, "BBSE3": 40, "ITSA4": 50, "PETR4": 100}
 

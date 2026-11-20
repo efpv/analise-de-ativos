@@ -9,6 +9,7 @@ const rankingSkeleton = document.getElementById("ranking-skeleton");
 const comparisonForm = document.getElementById("comparison-form");
 const comparisonMessage = document.getElementById("comparison-message");
 const comparisonBody = document.getElementById("comparison-body");
+const rankingSection = document.getElementById("ranking");
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -357,7 +358,7 @@ async function loadRanking() {
 
 document.getElementById("ranking-refresh").addEventListener("click", loadRanking);
 document.getElementById("ranking-order").addEventListener("change", loadRanking);
-if (window.location.pathname === "/ranking") {
+if (window.location.pathname === "/ranking" && !rankingSection.hidden) {
   window.addEventListener("load", () => {
     window.setTimeout(() => document.getElementById("ranking").scrollIntoView(), 0);
   }, { once: true });
@@ -476,4 +477,4 @@ themeToggle.addEventListener("click", () => {
   }
 });
 
-loadRanking();
+if (!rankingSection.hidden) loadRanking();

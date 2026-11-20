@@ -8,6 +8,7 @@ class Settings:
     database_path: str = os.getenv("DATABASE_PATH", "data/valuation_history.sqlite")
     request_timeout: float = 4.0
     brapi_api_key: str = os.getenv("BRAPI_API_KEY", "")
+    ranking_enabled: bool = os.getenv("ENABLE_RANKING", "false").strip().lower() == "true"
 
 
 settings = Settings()

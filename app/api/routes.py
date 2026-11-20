@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from app.core.config import settings
 from app.repositories.valuation_repository import ValuationRepository
 from app.models.valuation import DividendPeriod, Valuation
 from app.schemas.valuation import (
@@ -119,6 +120,9 @@ def get_ranking(
     taxa: float | None = Query(default=None, ge=0.001, le=1),
     periodo: DividendPeriod = Query(default="5anos"),
 ):
+    if not settings.ranking_enabled:
+        raise HTTPException(status_code=503, detail="O ranking está temporariamente desativado para reduzir consultas.")
+
     results: list[Valuation] = []
     warnings: list[str] = []
     with ThreadPoolExecutor(max_workers=4) as executor:
@@ -189,7 +193,7 @@ def home(request: Request):
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"history": repository.recent()},
+        {"history": repository.recent(), "ranking_enabled": settings.ranking_enabled},
     )
 
 
@@ -198,5 +202,5 @@ def ranking_page(request: Request):
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"history": repository.recent()},
+        {"history": repository.recent(), "ranking_enabled": settings.ranking_enabled},
     )

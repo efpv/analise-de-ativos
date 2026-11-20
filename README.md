@@ -12,7 +12,7 @@ python -m uvicorn app.main:app --reload
 ```
 
 Acesse `http://127.0.0.1:8000` e consulte a documentação em `http://127.0.0.1:8000/docs`.
-O ranking também está disponível como página em `http://127.0.0.1:8000/ranking`.
+O ranking está temporariamente desativado por padrão para reduzir consultas às fontes. Para reativá-lo, configure `ENABLE_RANKING=true` no ambiente e reinicie a aplicação; ele ficará disponível também em `http://127.0.0.1:8000/ranking`.
 
 ## Funcionalidades
 
@@ -23,15 +23,15 @@ O ranking também está disponível como página em `http://127.0.0.1:8000/ranki
 - O resumo mostra mínimo, máximo e média anual dos valores utilizados. O crescimento médio é a média aritmética das variações percentuais anuais consecutivas; fica indisponível em caso de lacunas, anos sem registro ou base zero. No LTM, estatísticas de anos civis não se aplicam. Os cenários de 6%, 8% e 10% usam os mesmos dividendos selecionados.
 - A contagem de eventos representa registros válidos retornados pela fonte, inclusive eventuais pagamentos futuros, e pode diferir da quantidade usada no cálculo.
 - A análise apresenta a fonte e a data da consulta, os dividendos anuais usados, a memória completa do cálculo e gráficos de preço e dividendos.
-- O ranking inicial consulta BBAS3, BBSE3, ITSA4, PETR4, TAEE11, CMIG4, TRPL4 e SAPR4. A comparação aceita até quatro ativos.
-- Ao consultar um ticker com pares setoriais cadastrados, a comparação é preenchida e executada automaticamente. Os grupos de pares são uma lista curada em `app/services/sector_peer_service.py`; quando um provedor não retorna dados para um par, os demais ativos disponíveis continuam sendo exibidos.
-- Clique no ticker de uma coluna da comparação para calcular e carregar sua análise, mantendo a taxa e o período selecionados. Atualize o ranking após alterar esses parâmetros.
+- Quando ativado, o ranking consulta BBAS3, BBSE3, ITSA4, PETR4, TAEE11, CMIG4, TRPL4 e SAPR4. A comparação aceita até quatro ativos.
+- Ao consultar um ticker com pares setoriais cadastrados, a comparação é preenchida e executada automaticamente. Os grupos de pares são uma lista curada em `app/services/sector_peer_service.py`; quando um provedor não retorna dados para um par, os demais ativos disponíveis continuam sendo exibidos. A comparação automática continua gerando consultas, mesmo com o ranking desativado.
+- Clique no ticker de uma coluna da comparação para calcular e carregar sua análise, mantendo a taxa e o período selecionados. Quando o ranking estiver ativado, atualize-o após alterar esses parâmetros.
 - A interface oferece tema escuro, carregamento visual e layout responsivo.
 
 ## API
 
 - `GET /api/v1/valuation/{ticker}?taxa=0.06&periodo=5anos` calcula um ativo.
-- `GET /api/v1/ranking?ordem=potencial` consulta o ranking. `ordem` aceita `potencial`, `dy` ou `classificacao`.
+- `GET /api/v1/ranking?ordem=potencial` consulta o ranking quando habilitado; caso contrário, retorna HTTP 503 sem consultar as fontes. `ordem` aceita `potencial`, `dy` ou `classificacao`.
 - `GET /api/v1/comparison?tickers=ITSA4&tickers=BBAS3` compara de um a quatro ativos.
 
 As taxas da API são decimais: `0.06` representa 6%. Na interface, a taxa é informada em porcentagem.
