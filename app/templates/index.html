@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f7fb">
+  <title>Preço Justo Bazin | Análise de dividendos</title>
+  <link rel="stylesheet" href="/static/styles.css?v=7">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Preço Justo Bazin - início">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>
+          <span class="eyebrow">Análise de dividendos</span>
+          <strong class="brand-title">Preço Justo Bazin</strong>
+        </span>
+      </a>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/#comparacao">Comparar ativos</a>
+        <a href="/ranking">Ranking Bazin</a>
+      </nav>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar tema escuro" title="Alternar tema">
+        <span aria-hidden="true">◐</span><span class="theme-label">Tema</span>
+      </button>
+    </header>
+
+    <section id="calculadora" class="page-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Valuation por dividendos</p>
+          <h1>Encontre o preço justo</h1>
+          <p class="section-subtitle">Analise o histórico de proventos e compare o preço de mercado com o Método de Bazin.</p>
+        </div>
+      </div>
+
+      <section class="search-card" aria-label="Consultar ativo">
+        <form id="valuation-form">
+          <label for="ticker">Código do ativo</label>
+          <div class="search-row">
+            <input id="ticker" name="ticker" placeholder="Ex.: BBAS3" maxlength="6" autocomplete="off" required>
+            <label class="rate-input" for="taxa">
+              <span>Retorno mínimo desejado (%) <span class="info" tabindex="0" title="Representa o retorno mínimo anual esperado pelo investidor através dos dividendos." aria-label="Representa o retorno mínimo anual esperado pelo investidor através dos dividendos.">i</span></span>
+              <input id="taxa" name="taxa" type="number" value="6" min="0.1" max="100" step="0.1" required>
+            </label>
+            <button type="submit" id="submit-button">Calcular valuation</button>
+          </div>
+          <div class="rate-suggestions" aria-label="Sugestões de retorno">
+            <button type="button" class="rate-suggestion" data-rate="6">6% · Agressivo</button>
+            <button type="button" class="rate-suggestion" data-rate="8">8% · Moderado</button>
+            <button type="button" class="rate-suggestion" data-rate="10">10% · Conservador</button>
+          </div>
+          <label for="periodo" class="period-label">Período utilizado para cálculo dos dividendos</label>
+          <select id="periodo" name="periodo">
+            <option value="ltm">Últimos 12 meses (LTM)</option>
+            <option value="3anos">Últimos 3 anos</option>
+            <option value="5anos" selected>Últimos 5 anos</option>
+            <option value="todos">Todos os anos disponíveis</option>
+          </select>
+          <p class="rate-label">Os períodos de 3 e 5 anos usam anos encerrados; todo o histórico inclui o ano atual parcial. O LTM usa pagamentos com data informada. Recalcule após alterar os parâmetros.</p>
+        </form>
+      </section>
+      <p class="methodology-notice">O Método Bazin utiliza dividendos históricos para estimar um preço justo. Resultados passados não garantem dividendos futuros. Esta ferramenta possui caráter educacional e não constitui recomendação de investimento.</p>
+
+      <p id="message" class="message" role="alert" aria-live="polite"></p>
+      <section id="skeleton" class="skeleton-grid" aria-label="Carregando análise" hidden>
+        <div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-panel"></div><div class="skeleton skeleton-panel"></div>
+      </section>
+
+      <section id="results" class="results" hidden aria-live="polite">
+        <div class="asset-heading">
+          <div>
+            <p class="eyebrow">Ativo analisado</p>
+            <h2 id="company-name"></h2>
+            <span id="ticker-name" class="ticker-badge"></span>
+          </div>
+          <div id="status-badge" class="status-badge"></div>
+        </div>
+
+        <div id="warnings" class="warning-list" role="status" hidden></div>
+
+        <div class="metrics-grid">
+          <article class="metric-card">
+            <p><span aria-hidden="true">◉</span> Preço atual <span class="info" title="Último preço disponível retornado pela fonte consultada." aria-label="Último preço disponível retornado pela fonte consultada.">i</span></p>
+            <strong id="current-price"></strong>
+          </article>
+          <article class="metric-card highlight">
+            <p><span aria-hidden="true">◎</span> Preço justo Bazin <span class="info" title="Dividendos do período selecionado divididos pela taxa Bazin." aria-label="Dividendos do período selecionado divididos pela taxa Bazin.">i</span></p>
+            <strong id="fair-price"></strong>
+          </article>
+          <article class="metric-card">
+            <p><span aria-hidden="true">↗</span> Margem de segurança <span class="info" title="Variação percentual entre o preço justo e o preço atual." aria-label="Variação percentual entre o preço justo e o preço atual.">i</span></p>
+            <strong id="safety-margin"></strong>
+          </article>
+          <article class="metric-card">
+            <p><span aria-hidden="true">▥</span> Dividend Yield calculado <span class="info" title="Dividendos do último ano completo divididos pelo preço atual, independentemente do período selecionado." aria-label="Dividendos do último ano completo divididos pelo preço atual, independentemente do período selecionado.">i</span></p>
+            <strong id="dividend-yield"></strong>
+          </article>
+        </div>
+
+        <div class="details-grid">
+          <article class="panel">
+            <h3>Memória de cálculo</h3>
+            <div id="calculation" class="calculation" aria-live="polite"></div>
+          </article>
+          <article class="panel">
+            <h3>Dados utilizados no cálculo</h3>
+            <dl class="data-list">
+              <div><dt>Fonte dos dados</dt><dd id="data-source"></dd></div>
+              <div><dt>Preço atual</dt><dd id="data-price"></dd></div>
+              <div><dt>Período analisado</dt><dd id="used-period"></dd></div>
+              <div><dt id="average-dividends-label">Dividendos médios</dt><dd id="average-dividends"></dd></div>
+              <div><dt>Dividendos pagos nos últimos 12 meses</dt><dd id="ltm-dividends"></dd></div>
+              <div><dt>Base do Dividend Yield (último ano completo)</dt><dd id="dy-base"></dd></div>
+              <div><dt>Taxa Bazin</dt><dd id="used-rate"></dd></div>
+              <div><dt>Consulta</dt><dd id="consulted-at"></dd></div>
+              <div><dt>Eventos válidos encontrados na fonte (inclui futuros)</dt><dd id="events-found"></dd></div>
+              <div><dt>Anos utilizados</dt><dd id="years-used"></dd></div>
+            </dl>
+            <h4 id="dividend-history-title" class="subheading">Dividendos utilizados</h4>
+            <div id="dividend-history" class="dividend-list"></div>
+            <p id="history-note" class="rate-label"></p>
+          </article>
+        </div>
+
+        <div class="details-grid">
+          <article class="panel">
+            <h3>Resumo dos Dividendos</h3>
+            <dl class="data-list">
+              <div><dt>Dividendos médios</dt><dd id="summary-average"></dd></div>
+              <div><dt>Maior dividendo anual</dt><dd id="summary-high"></dd></div>
+              <div><dt>Menor dividendo anual</dt><dd id="summary-low"></dd></div>
+              <div><dt>Crescimento médio anual</dt><dd id="summary-growth"></dd></div>
+              <div><dt>Anos analisados</dt><dd id="summary-years"></dd></div>
+            </dl>
+            <p id="summary-note" class="rate-label">Média simples das variações percentuais entre anos consecutivos. Indisponível quando há lacunas ou base zero.</p>
+          </article>
+          <details class="panel profile-prices" open>
+            <summary>Preço Justo por Perfil</summary>
+            <p class="rate-label">Mesmos dividendos do período selecionado, com retornos mínimos diferentes.</p>
+            <dl class="data-list">
+              <div><dt>Agressivo (6%)</dt><dd id="profile-aggressive"></dd></div>
+              <div><dt>Moderado (8%)</dt><dd id="profile-moderate"></dd></div>
+              <div><dt>Conservador (10%)</dt><dd id="profile-conservative"></dd></div>
+            </dl>
+          </details>
+        </div>
+
+        <div class="charts-grid">
+          <article class="panel chart-panel">
+            <h3>Preço atual × preço justo</h3>
+            <p id="price-difference" class="chart-caption"></p>
+            <div class="chart-wrap"><canvas id="price-chart" role="img" aria-label="Gráfico comparativo entre preço atual e preço justo"></canvas></div>
+          </article>
+          <article class="panel chart-panel">
+            <h3>Evolução dos dividendos</h3>
+            <p id="dividend-chart-caption" class="chart-caption">Proventos por ano, em reais por ação.</p>
+            <div class="chart-wrap"><canvas id="dividend-chart" role="img" aria-label="Gráfico de dividendos por ano"></canvas></div>
+          </article>
+        </div>
+      </section>
+      <article class="panel interpretation">
+        <h3>Como interpretar</h3>
+        <dl class="interpretation-list">
+          <div><dt><span class="status-badge table-badge muito-barata">Muito Barata</span></dt><dd>Margem acima de 30%: desconto relevante em relação ao preço justo calculado.</dd></div>
+          <div><dt><span class="status-badge table-badge barata">Barata</span></dt><dd>Margem acima de 10% até 30%: ativo negociado abaixo do preço justo.</dd></div>
+          <div><dt><span class="status-badge table-badge justa">Justa</span></dt><dd>Margem de -10% a 10%: ativo negociado próximo do preço justo.</dd></div>
+          <div><dt><span class="status-badge table-badge cara">Cara</span></dt><dd>Margem de -30% até abaixo de -10%: ativo negociado acima do preço justo.</dd></div>
+          <div><dt><span class="status-badge table-badge muito-cara">Muito Cara</span></dt><dd>Margem abaixo de -30%: ativo significativamente acima do preço justo.</dd></div>
+        </dl>
+      </article>
+    </section>
+
+    <section id="comparacao" class="page-section dashboard-section">
+      <div class="section-heading">
+        <p class="eyebrow">Análise lado a lado</p>
+        <h2>Comparar ativos</h2>
+        <p id="peer-info" class="section-subtitle">Após consultar um ativo, a comparação será preenchida automaticamente com empresas do mesmo setor. Também é possível informar tickers manualmente.</p>
+        <p class="section-subtitle">A comparação usa a taxa e o período selecionados no momento da consulta.</p>
+        <p class="section-subtitle">Clique no ticker da tabela para analisar esse ativo.</p>
+      </div>
+      <form id="comparison-form" class="search-card comparison-form">
+        <label for="comparison-tickers">Ativos para comparar</label>
+        <div class="search-row comparison-row">
+          <input id="comparison-tickers" name="tickers" placeholder="Preenchido após consultar um ativo" autocomplete="off">
+          <button id="comparison-submit" type="submit">Comparar ativos</button>
+        </div>
+      </form>
+      <p id="comparison-message" class="message" role="status" aria-live="polite"></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Indicador</th><th id="compare-header-0">Ativo 1</th><th id="compare-header-1">Ativo 2</th><th id="compare-header-2">Ativo 3</th><th id="compare-header-3">Ativo 4</th></tr></thead>
+          <tbody id="comparison-body"><tr><td colspan="5" class="empty-state">Selecione ativos para iniciar a comparação.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="ranking" class="page-section dashboard-section">
+      <div class="section-heading section-heading-row">
+        <div>
+          <p class="eyebrow">Oportunidades</p>
+          <h2>Ranking Bazin</h2>
+          <p class="section-subtitle">Acompanhe uma seleção inicial de ações da B3 pelo potencial calculado. Atualize o ranking após alterar a taxa ou o período.</p>
+        </div>
+        <div class="section-actions">
+          <label for="ranking-order" class="visually-hidden">Ordenar ranking</label>
+          <select id="ranking-order">
+            <option value="potencial">Maior potencial</option>
+            <option value="dy">Maior Dividend Yield</option>
+            <option value="classificacao">Melhor classificação</option>
+          </select>
+          <button id="ranking-refresh" class="secondary-button" type="button">Atualizar ranking</button>
+        </div>
+      </div>
+      <p id="ranking-message" class="message" role="status" aria-live="polite"></p>
+      <div id="ranking-skeleton" class="skeleton skeleton-table" hidden></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ticker</th><th>Preço atual</th><th>Preço justo</th><th>Margem</th><th>DY</th><th>Classificação</th></tr></thead>
+          <tbody id="ranking-body"><tr><td colspan="6" class="empty-state">Carregue o ranking para consultar as oportunidades.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="history-section">
+      <h2>Consultas recentes</h2>
+      {% if history %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ticker</th><th>Data</th><th>Preço atual</th><th>Preço justo</th></tr></thead>
+          <tbody>
+          {% for item in history %}
+            <tr><td><strong>{{ item.ticker }}</strong></td><td>{{ item.data_consulta }}</td><td>R$ {{ "%.2f"|format(item.preco_atual) }}</td><td>R$ {{ "%.2f"|format(item.preco_justo) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state">Nenhuma consulta realizada ainda.</p>
+      {% endif %}
+    </section>
+    <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. O Método Bazin utiliza dividendos históricos para estimar um preço justo e não garante resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="/static/app.js?v=13" defer></script>
+</body>
+</html>
