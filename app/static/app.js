@@ -17,11 +17,7 @@ const currency = new Intl.NumberFormat("pt-BR", {
 });
 const decimal = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 2,
-  maximumFractionDigits: 4,
-});
-const calculationNumber = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 8,
+  maximumFractionDigits: 2,
 });
 const periodLabels = {
   ltm: "Últimos 12 meses (LTM)",
@@ -108,20 +104,21 @@ function renderHistory(data) {
 function renderCalculation(data) {
   const isLtm = data.periodo === "ltm";
   const items = isLtm ? data.pagamentos_ltm : data.dividendos_historicos;
-  const values = items.map((item) => calculationNumber.format(item.valor));
+  const values = items.map((item) => decimal.format(item.valor));
   const lines = [
+    "Valores exibidos arredondados a duas casas decimais; os cálculos usam a precisão original.",
     `Período analisado: ${periodLabels[data.periodo]}`,
     "Dividendos utilizados:",
-    ...items.map((item) => `${isLtm ? item.data.split("-").reverse().join("/") : `${item.ano}${item.situacao === "parcial" ? " (parcial)" : item.situacao === "sem_registro" ? " (sem registro)" : ""}`} = R$ ${calculationNumber.format(item.valor)}`),
+    ...items.map((item) => `${isLtm ? item.data.split("-").reverse().join("/") : `${item.ano}${item.situacao === "parcial" ? " (parcial)" : item.situacao === "sem_registro" ? " (sem registro)" : ""}`} = R$ ${decimal.format(item.valor)}`),
     isLtm
       ? `Dividendos LTM = ${values.length ? values.join(" + ") : "0"}`
       : `Dividendos Médios = (${values.join(" + ")}) / ${values.length}`,
-    `Dividendos ${isLtm ? "LTM" : "Médios"} = R$ ${calculationNumber.format(data.dividendos_medios)}`,
-    `Preço Justo = ${calculationNumber.format(data.dividendos_medios)} / ${calculationNumber.format(data.taxa_bazin)}`,
-    `Preço Justo = R$ ${calculationNumber.format(data.preco_justo)}`,
-    `Margem = ((${calculationNumber.format(data.preco_justo)} - ${calculationNumber.format(data.preco_atual)}) / ${calculationNumber.format(data.preco_atual)}) × 100`,
+    `Dividendos ${isLtm ? "LTM" : "Médios"} = R$ ${decimal.format(data.dividendos_medios)}`,
+    `Preço Justo = ${decimal.format(data.dividendos_medios)} / (${decimal.format(data.taxa_bazin * 100)} / 100)`,
+    `Preço Justo = R$ ${decimal.format(data.preco_justo)}`,
+    `Margem = ((${decimal.format(data.preco_justo)} - ${decimal.format(data.preco_atual)}) / ${decimal.format(data.preco_atual)}) × 100`,
     `Margem = ${formattedMargin(data.margem_seguranca)}`,
-    `Dividend Yield (${data.ano_dividend_yield}) = (${calculationNumber.format(data.dividendos_dividend_yield)} / ${calculationNumber.format(data.preco_atual)}) × 100 = ${decimal.format(data.dividend_yield)}%`,
+    `Dividend Yield (${data.ano_dividend_yield}) = (${decimal.format(data.dividendos_dividend_yield)} / ${decimal.format(data.preco_atual)}) × 100 = ${decimal.format(data.dividend_yield)}%`,
   ];
   const container = document.getElementById("calculation");
   container.replaceChildren();
