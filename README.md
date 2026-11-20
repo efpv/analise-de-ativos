@@ -39,6 +39,8 @@ Os três endpoints aceitam `periodo=ltm`, `3anos`, `5anos` ou `todos` (padrão: 
 
 A BRAPI pode exigir autenticação e um plano que inclua os dados de proventos. Configure a chave na variável de ambiente `BRAPI_API_KEY` antes de iniciar o servidor; não a inclua no código ou no Git. Sem acesso à BRAPI, o fallback Yahoo Finance continua disponível, mas não permite calcular pagamentos LTM.
 
+Para investigar falhas, consulte os logs do serviço: as mensagens da aplicação informam o ticker e, quando disponível, o status HTTP da BRAPI ou o tipo da exceção. Elas não incluem a chave, URLs de requisição nem o conteúdo das respostas. Status 401, 403 e 429 podem indicar, respectivamente, problema de autenticação, restrição do plano ou limite de requisições; consulte também a documentação da fonte. Mensagens emitidas por bibliotecas externas podem ter outro formato.
+
 ## Testes
 
 ```bash

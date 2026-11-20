@@ -122,6 +122,62 @@ def test_brapi_parses_asset(monkeypatch):
     assert asset.eventos_encontrados == 1
 
 
+@pytest.mark.parametrize("status", [401, 403, 429])
+def test_brapi_http_failure_logs_status_without_sensitive_details(monkeypatch, caplog, status):
+    client = api_client.ApiClient()
+    request = httpx.Request("GET", "https://brapi.dev/api/quote/TAEE11?token=segredo")
+    response = httpx.Response(status, request=request, text="segredo")
+
+    async def brapi(ticker):
+        raise httpx.HTTPStatusError("segredo", request=request, response=response)
+
+    monkeypatch.setattr(client, "_from_brapi", brapi)
+    monkeypatch.setattr(client, "_from_yahoo", lambda ticker: None)
+    assert client.get_asset("TAEE11") is None
+    assert f"ticker=TAEE11 status_http={status} tipo=HTTPStatusError" in caplog.text
+    assert "Yahoo Finance não retornou dados válidos: ticker=TAEE11" in caplog.text
+    assert "segredo" not in caplog.text
+    assert any(record.status_http == status for record in caplog.records if hasattr(record, "status_http"))
+
+
+def test_brapi_404_logs_status_before_fallback(monkeypatch, caplog):
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, *args, **kwargs):
+            return httpx.Response(404)
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    client = api_client.ApiClient()
+    monkeypatch.setattr(client, "_from_yahoo", lambda ticker: None)
+    assert client.get_asset("TAEE11") is None
+    assert "BRAPI não retornou o ativo: ticker=TAEE11 status_http=404" in caplog.text
+
+
+def test_provider_exceptions_log_types_without_messages(monkeypatch, caplog):
+    client = api_client.ApiClient()
+
+    async def brapi(ticker):
+        raise httpx.ConnectTimeout("segredo")
+
+    def yahoo(ticker):
+        raise ValueError("segredo")
+
+    monkeypatch.setattr(client, "_from_brapi", brapi)
+    monkeypatch.setattr(client, "_from_yahoo", yahoo)
+    assert client.get_asset("TAEE11") is None
+    assert "BRAPI: ticker=TAEE11 tipo=ConnectTimeout" in caplog.text
+    assert "Yahoo Finance: ticker=TAEE11 tipo=ValueError" in caplog.text
+    assert "segredo" not in caplog.text
+
+
 def test_valuation_response_includes_data_and_recalculated_yield(monkeypatch):
     asset = AssetData(
         ticker="BBAS3",

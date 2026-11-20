@@ -30,22 +30,38 @@ class ApiClient:
                 return asset
             if asset:
                 logger.warning(
-                    "BRAPI sem histórico de dividendos; consultando fallback",
+                    "BRAPI sem histórico de dividendos: ticker=%s; consultando Yahoo Finance",
+                    ticker,
                     extra={"ticker": ticker, "provider": "brapi"},
                 )
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "Falha na consulta à BRAPI: ticker=%s status_http=%s tipo=%s",
+                ticker, exc.response.status_code, type(exc).__name__,
+                extra={"ticker": ticker, "provider": "brapi", "status_http": exc.response.status_code},
+            )
         except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
             logger.warning(
-                "Falha na consulta à BRAPI",
-                extra={"ticker": ticker, "provider": "brapi", "error": str(exc)},
+                "Falha na consulta à BRAPI: ticker=%s tipo=%s",
+                ticker, type(exc).__name__,
+                extra={"ticker": ticker, "provider": "brapi", "error_type": type(exc).__name__},
             )
 
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(self._from_yahoo, ticker)
-                return future.result(timeout=8.0)
+                asset = future.result(timeout=8.0)
+                if asset is None:
+                    logger.warning(
+                        "Yahoo Finance não retornou dados válidos: ticker=%s",
+                        ticker,
+                        extra={"ticker": ticker, "provider": "yahoo"},
+                    )
+                return asset
         except TimeoutError:
             logger.warning(
-                "Timeout no fallback Yahoo Finance",
+                "Timeout no fallback Yahoo Finance: ticker=%s",
+                ticker,
                 extra={"ticker": ticker, "provider": "yahoo"},
             )
         except YAHOO_EXCEPTIONS + (
@@ -57,8 +73,9 @@ class ApiClient:
             RuntimeError,
         ) as exc:
             logger.warning(
-                "Falha no fallback Yahoo Finance",
-                extra={"ticker": ticker, "provider": "yahoo", "error": str(exc)},
+                "Falha no fallback Yahoo Finance: ticker=%s tipo=%s",
+                ticker, type(exc).__name__,
+                extra={"ticker": ticker, "provider": "yahoo", "error_type": type(exc).__name__},
             )
         return None
 
@@ -70,15 +87,30 @@ class ApiClient:
                 url, params={"dividends": "true", "fundamental": "true"}, headers=headers
             )
             if response.status_code == 404:
+                logger.warning(
+                    "BRAPI não retornou o ativo: ticker=%s status_http=404",
+                    ticker,
+                    extra={"ticker": ticker, "provider": "brapi", "status_http": 404},
+                )
                 return None
             response.raise_for_status()
 
         results = response.json().get("results") or []
         if not results:
+            logger.warning(
+                "BRAPI retornou resultado vazio: ticker=%s",
+                ticker,
+                extra={"ticker": ticker, "provider": "brapi"},
+            )
             return None
         item = results[0]
         price = item.get("regularMarketPrice") or item.get("regularMarketPreviousClose")
         if not price:
+            logger.warning(
+                "BRAPI não retornou preço: ticker=%s",
+                ticker,
+                extra={"ticker": ticker, "provider": "brapi"},
+            )
             return None
 
         raw_history = item.get("dividends") or item.get("dividendsData") or item.get("dividendData") or []
