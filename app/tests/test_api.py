@@ -22,8 +22,9 @@ def test_home_page(monkeypatch):
     assert "Dados utilizados no cálculo" in response.text
     assert "Ranking Bazin" in response.text
     assert response.text.index('id="comparacao"') < response.text.index('id="ranking"')
+    assert '<a href="/ranking" hidden>' in response.text
     assert 'id="ranking" class="page-section dashboard-section" hidden' in response.text
-    assert "O Ranking Bazin está temporariamente desativado" in response.text
+    assert "O Ranking Bazin está temporariamente desativado" not in response.text
 
 
 def test_ranking_page():
