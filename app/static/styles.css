@@ -76,10 +76,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .search-card { padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
 .search-card label { display: block; margin-bottom: 8px; color: var(--ink); font-size: 13px; font-weight: 750; }
 .search-row { display: grid; grid-template-columns: minmax(180px, 1fr) 155px 190px; align-items: end; gap: 12px; }
-.search-row > input, .rate-input input, .section-actions select, #periodo {
+.search-row > input, .ticker-search input, .rate-input input, .section-actions select, #periodo {
   width: 100%; height: 46px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px;
   background: var(--surface); color: var(--ink);
 }
+.ticker-search { position: relative; min-width: 0; }
+.ticker-suggestions {
+  position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0;
+  max-height: 320px; overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow);
+}
+.ticker-suggestions li { padding: 8px; border-radius: 6px; cursor: pointer; }
+.ticker-suggestions li:hover, .ticker-suggestions li[aria-selected="true"] { background: var(--soft); }
+.ticker-suggestions strong, .ticker-suggestions span { display: block; }
+.ticker-suggestions strong { color: var(--ink); font-size: 13px; }
+.ticker-suggestions span { color: var(--muted); font-size: 12px; }
+.ticker-search-status { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.ticker-search-status:empty { display: none; }
 .rate-input { margin: 0 !important; color: var(--muted) !important; font-size: 11px !important; }
 .rate-input input { display: block; margin-top: 5px; color: var(--ink); font-size: 15px; }
 .search-row button { min-height: 46px; border: 0; border-radius: 8px; padding: 0 17px; background: #102a43; color: #fff; font-weight: 750; cursor: pointer; }
@@ -192,7 +205,7 @@ tbody tr:hover { background: color-mix(in srgb, var(--soft) 55%, var(--surface))
   .theme-toggle { min-height: 36px; padding: 6px 9px; }
   .theme-label { display: none; }
   .search-row, .comparison-row { grid-template-columns: 1fr 1fr; }
-  .search-row > input { grid-column: 1 / -1; }
+  .search-row > input, .ticker-search { grid-column: 1 / -1; }
   .search-row button { grid-column: 1 / -1; }
   .comparison-row input { grid-column: 1 / -1; }
   .comparison-row button { grid-column: 1 / -1; }

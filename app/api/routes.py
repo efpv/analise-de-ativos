@@ -1,8 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.core.config import settings
@@ -28,6 +29,14 @@ ticker_service = TickerService()
 valuation_service = ValuationService()
 sector_peer_service = SectorPeerService()
 RANKING_TICKERS = ("BBAS3", "BBSE3", "ITSA4", "PETR4", "TAEE11", "CMIG4", "TRPL4", "SAPR4")
+
+
+@router.get("/api/v1/assets", response_class=FileResponse, include_in_schema=False)
+def get_assets_catalog():
+    return FileResponse(
+        Path(__file__).resolve().parents[2] / "data" / "ativos_b3.json",
+        media_type="application/json",
+    )
 
 
 def _calculate(

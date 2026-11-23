@@ -17,7 +17,7 @@ O ranking está temporariamente desativado por padrão para reduzir consultas à
 ## Funcionalidades
 
 - O Dividend Yield é recalculado com os dividendos do último ano civil completo divididos pelo preço atual, independentemente do período escolhido para o preço justo. Divergências em relação à fonte e distribuições anuais atípicas são sinalizadas.
-- O preço justo usa os últimos 3 ou 5 anos civis encerrados (padrão: 5), todos os anos retornados até a consulta ou os pagamentos dos últimos 12 meses (LTM). Os períodos de 3 e 5 anos contabilizam anos sem registros como zero e os sinalizam; todo o histórico inclui apenas anos retornados, inclusive o ano atual parcial, sem pagamentos futuros. Ano encerrado não garante que a fonte contenha todos os registros.
+- Na interface, o preço justo usa os últimos 3 ou 5 anos civis encerrados (padrão: 3) ou todos os anos retornados até a consulta. A API também aceita os pagamentos dos últimos 12 meses (LTM). Os períodos de 3 e 5 anos contabilizam anos sem registros como zero e os sinalizam; todo o histórico inclui apenas anos retornados, inclusive o ano atual parcial, sem pagamentos futuros. Ano encerrado não garante que a fonte contenha todos os registros.
 - O LTM soma pagamentos com data entre a data equivalente do ano anterior (exclusiva) e a data da consulta (inclusiva). Registros sem data de pagamento válida ou com apenas prazo são omitidos, com aviso de que o total pode estar incompleto. Se não houver datas de pagamento, o indicador fica indisponível e a análise LTM é recusada. O Yahoo Finance fornece datas ex-dividendo, não datas de pagamento; seus anos são agregados por data ex e não permitem LTM pago. Quando a BRAPI não informa a data de pagamento de um registro, seu ano pode ser baseado na data ex ou data-com, com aviso.
 - O campo de taxa é editável; 6%, 8% e 10% são sugestões, não recomendações. A classificação considera 10% e -10% como Justa, 30% como Barata e -30% como Cara.
 - O resumo mostra mínimo, máximo e média anual dos valores utilizados. O crescimento médio é a média aritmética das variações percentuais anuais consecutivas; fica indisponível em caso de lacunas, anos sem registro ou base zero. No LTM, estatísticas de anos civis não se aplicam. Os cenários de 6%, 8% e 10% usam os mesmos dividendos selecionados.
@@ -27,7 +27,8 @@ O ranking está temporariamente desativado por padrão para reduzir consultas à
 - Quando ativado, o ranking consulta BBAS3, BBSE3, ITSA4, PETR4, TAEE11, CMIG4, TRPL4 e SAPR4. Alterar a ordenação reutiliza os dados carregados, sem novas consultas; use "Atualizar ranking" para consultar novamente. A comparação aceita até quatro ativos.
 - Ao consultar um ticker com pares setoriais cadastrados, a comparação é preenchida e executada automaticamente. Os grupos de pares são uma lista curada em `app/services/sector_peer_service.py`; quando um provedor não retorna dados para um par, os demais ativos disponíveis continuam sendo exibidos. A comparação automática continua gerando consultas, mesmo com o ranking desativado.
 - Clique no ticker de uma coluna da comparação para calcular e carregar sua análise, mantendo a taxa e o período selecionados. Quando o ranking estiver ativado, atualize-o após alterar esses parâmetros.
-- A interface oferece tema escuro, carregamento visual e layout responsivo.
+- O campo de ativo pesquisa localmente por ticker, símbolo Yahoo ou nome, inclusive sem acentos, e apresenta até 10 sugestões selecionáveis por mouse ou teclado. O catálogo `data/ativos_b3.json` é carregado uma vez por página; trata-se de um snapshot sem atualização automática ou garantia de cobertura completa. A consulta do ativo selecionado ainda depende das fontes de mercado.
+- A interface usa tema escuro por padrão, respeita a preferência salva e oferece carregamento visual e layout responsivo.
 
 ## API
 
@@ -46,7 +47,7 @@ Para investigar falhas, consulte os logs do serviço: as mensagens da aplicaçã
 
 ```bash
 python -m pytest --cov=app --cov-report=term-missing
-node --test app/tests/test_ranking_ui.js
+node --test app/tests/test_ranking_ui.js app/tests/test_asset_search.js
 ```
 
 O histórico SQLite fica em `data/valuation_history.sqlite`, é criado automaticamente e não é versionado. A taxa padrão pode ser configurada pela variável `BAZIN_RATE`.

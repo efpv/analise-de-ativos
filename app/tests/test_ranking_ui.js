@@ -4,13 +4,13 @@ const { join } = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-function setupRanking() {
+function setupRanking(savedTheme = null) {
   const elements = new Map();
   function element() {
     return {
       children: [], listeners: {}, dataset: {}, hidden: false, value: "",
       addEventListener(type, handler) { this.listeners[type] = handler; },
-      setAttribute() {},
+      setAttribute(name, value) { this[name] = value; },
       replaceChildren(...children) { this.children = children; },
       appendChild(child) { this.children.push(child); },
     };
@@ -20,7 +20,7 @@ function setupRanking() {
     return elements.get(id);
   };
   get("taxa").value = "6";
-  get("periodo").value = "5anos";
+  get("periodo").value = "3anos";
   get("ranking-order").value = "potencial";
   const requests = [];
   const pending = [];
@@ -32,7 +32,10 @@ function setupRanking() {
       body: { dataset: {} },
     },
     window: { location: { pathname: "/" } },
-    localStorage: { getItem: () => null },
+    localStorage: {
+      getItem: () => savedTheme,
+      setItem: (key, value) => { savedTheme = value; },
+    },
     fetch: (url) => {
       requests.push(url);
       return new Promise((resolve) => pending.push(resolve));
@@ -50,8 +53,30 @@ function setupRanking() {
     pending.shift()({ ok: true, json: async () => ({ itens: items, avisos: [] }) });
     await new Promise((resolve) => setImmediate(resolve));
   };
-  return { get, requests, changeOrder, tickers, resolveRequest, renderCalculation: context.renderCalculation };
+  return { get, requests, changeOrder, tickers, resolveRequest, renderCalculation: context.renderCalculation,
+    body: context.document.body, savedTheme: () => savedTheme };
 }
+
+test("o seletor oferece 3 anos como padrão sem a opção de 12 meses", () => {
+  const html = readFileSync(join(__dirname, "..", "templates", "index.html"), "utf8");
+  const select = html.match(/<select id="periodo"[^>]*>([\s\S]*?)<\/select>/)[1];
+  assert.deepEqual([...select.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]),
+    ["3anos", "5anos", "todos"]);
+  assert.match(select, /<option value="3anos" selected>/);
+  assert.match(setupRanking().requests[0], /periodo=3anos/);
+});
+
+test("tema escuro é padrão e a preferência salva é respeitada", () => {
+  const ui = setupRanking();
+  assert.equal(ui.body.dataset.theme, "dark");
+  assert.equal(ui.get("theme-toggle")["aria-label"], "Ativar tema claro");
+  ui.get("theme-toggle").listeners.click();
+  assert.equal(ui.body.dataset.theme, "light");
+  assert.equal(ui.savedTheme(), "light");
+  assert.equal(ui.get("theme-toggle")["aria-label"], "Ativar tema escuro");
+  assert.equal(setupRanking("light").body.dataset.theme, "light");
+  assert.equal(setupRanking("dark").body.dataset.theme, "dark");
+});
 
 test("ordena dados carregados sem consultar novamente e atualiza com os parâmetros atuais", async () => {
   const ui = setupRanking();

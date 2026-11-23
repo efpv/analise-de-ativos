@@ -33,6 +33,19 @@ def test_ranking_page():
     assert "ranking-body" in response.text
 
 
+def test_catalogo_de_ativos_serve_json_local(monkeypatch):
+    def unexpected_lookup(ticker):
+        pytest.fail("O catálogo não deve consultar provedores")
+
+    monkeypatch.setattr(routes.ticker_service, "get_asset", unexpected_lookup)
+    response = TestClient(app).get("/api/v1/assets")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assets = response.json()
+    assert any(item["ticker"] == "PETR4" and item["symbol"] == "PETR4.SA" for item in assets)
+    assert any(item["ticker"] == "BBAS3" and item["company"] for item in assets)
+
+
 def test_enabled_ranking_is_visible(monkeypatch):
     monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=True))
     response = TestClient(app).get("/")

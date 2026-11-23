@@ -9,7 +9,7 @@ class TickerService:
 
     def validate(self, ticker: str) -> str:
         normalized = ticker.strip().upper()
-        if not re.fullmatch(r"[A-Z]{4}[0-9]{1,2}", normalized):
+        if not re.fullmatch(r"[A-Z0-9]{4}[0-9]{1,2}[A-Z]?F?", normalized):
             raise ValueError("Informe um ticker válido da B3, por exemplo BBAS3.")
         return normalized
 

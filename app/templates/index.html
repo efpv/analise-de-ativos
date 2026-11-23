@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f7fb">
   <title>Preço Justo Bazin | Análise de dividendos</title>
-  <link rel="stylesheet" href="/static/styles.css?v=7">
+  <link rel="stylesheet" href="/static/styles.css?v=8">
 </head>
-<body>
+<body data-theme="dark">
   <main class="app-shell">
     <header class="topbar">
       <a class="brand" href="/" aria-label="Preço Justo Bazin - início">
@@ -22,7 +22,7 @@
         <a href="/#comparacao">Comparar ativos</a>
         <a href="/ranking"{% if not ranking_enabled %} hidden{% endif %}>Ranking Bazin</a>
       </nav>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar tema escuro" title="Alternar tema">
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar tema claro" title="Alternar tema">
         <span aria-hidden="true">◐</span><span class="theme-label">Tema</span>
       </button>
     </header>
@@ -38,15 +38,20 @@
 
       <section class="search-card" aria-label="Consultar ativo">
         <form id="valuation-form">
-          <label for="ticker">Código do ativo</label>
+          <label for="ticker">Código ou nome do ativo</label>
           <div class="search-row">
-            <input id="ticker" name="ticker" placeholder="Ex.: BBAS3" maxlength="6" autocomplete="off" required>
+            <div class="ticker-search">
+              <input id="ticker" name="ticker" placeholder="Ex.: BBAS3 ou Banco do Brasil" autocomplete="off" required
+                     role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ticker-suggestions">
+              <ul id="ticker-suggestions" class="ticker-suggestions" role="listbox" aria-label="Sugestões de ativos" hidden></ul>
+            </div>
             <label class="rate-input" for="taxa">
               <span>Retorno mínimo desejado (%) <span class="info" tabindex="0" title="Representa o retorno mínimo anual esperado pelo investidor através dos dividendos." aria-label="Representa o retorno mínimo anual esperado pelo investidor através dos dividendos.">i</span></span>
               <input id="taxa" name="taxa" type="number" value="6" min="0.1" max="100" step="0.1" required>
             </label>
             <button type="submit" id="submit-button">Calcular valuation</button>
           </div>
+          <p id="ticker-search-status" class="ticker-search-status" role="status" aria-live="polite"></p>
           <div class="rate-suggestions" aria-label="Sugestões de retorno">
             <button type="button" class="rate-suggestion" data-rate="6">6% · Agressivo</button>
             <button type="button" class="rate-suggestion" data-rate="8">8% · Moderado</button>
@@ -54,12 +59,11 @@
           </div>
           <label for="periodo" class="period-label">Período utilizado para cálculo dos dividendos</label>
           <select id="periodo" name="periodo">
-            <option value="ltm">Últimos 12 meses (LTM)</option>
-            <option value="3anos">Últimos 3 anos</option>
-            <option value="5anos" selected>Últimos 5 anos</option>
+            <option value="3anos" selected>Últimos 3 anos</option>
+            <option value="5anos">Últimos 5 anos</option>
             <option value="todos">Todos os anos disponíveis</option>
           </select>
-          <p class="rate-label">Os períodos de 3 e 5 anos usam anos encerrados; todo o histórico inclui o ano atual parcial. O LTM usa pagamentos com data informada. Recalcule após alterar os parâmetros.</p>
+          <p class="rate-label">Os períodos de 3 e 5 anos usam anos encerrados; todo o histórico inclui o ano atual parcial. Recalcule após alterar os parâmetros.</p>
         </form>
       </section>
       <p class="methodology-notice">O Método Bazin utiliza dividendos históricos para estimar um preço justo. Resultados passados não garantem dividendos futuros. Esta ferramenta possui caráter educacional e não constitui recomendação de investimento.</p>
@@ -246,6 +250,7 @@
     <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. O Método Bazin utiliza dividendos históricos para estimar um preço justo e não garante resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
-  <script src="/static/app.js?v=16" defer></script>
+  <script src="/static/asset-search.js?v=1" defer></script>
+  <script src="/static/app.js?v=17" defer></script>
 </body>
 </html>

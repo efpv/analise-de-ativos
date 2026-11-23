@@ -480,7 +480,7 @@ comparisonForm.addEventListener("submit", async (event) => {
 
 const themeToggle = document.getElementById("theme-toggle");
 const savedTheme = localStorage.getItem("bazin-theme");
-const darkThemeEnabled = savedTheme === "dark";
+const darkThemeEnabled = savedTheme !== "light";
 document.body.dataset.theme = darkThemeEnabled ? "dark" : "light";
 themeToggle.setAttribute("aria-label", darkThemeEnabled ? "Ativar tema claro" : "Ativar tema escuro");
 themeToggle.addEventListener("click", () => {
