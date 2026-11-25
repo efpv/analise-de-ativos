@@ -19,3 +19,6 @@ class TickerService:
         if asset is None:
             raise LookupError("Ativo não encontrado.")
         return asset
+
+    def get_price(self, ticker: str) -> float | None:
+        return self.client.get_price(self.validate(ticker))

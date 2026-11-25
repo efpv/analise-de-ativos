@@ -8,6 +8,8 @@ class Settings:
     database_path: str = os.getenv("DATABASE_PATH", "data/valuation_history.sqlite")
     request_timeout: float = 4.0
     brapi_api_key: str = os.getenv("BRAPI_API_KEY", "")
+    cash_yield_cache_path: str = os.getenv("CASH_YIELD_CACHE_PATH", "data/cash_yield_cache.json")
+    cash_yield_workers: int = int(os.getenv("CASH_YIELD_WORKERS", "4"))
     ranking_enabled: bool = os.getenv("ENABLE_RANKING", "false").strip().lower() == "true"
 
 

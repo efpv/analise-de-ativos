@@ -79,6 +79,43 @@ class ApiClient:
             )
         return None
 
+    def get_price(self, ticker: str) -> float | None:
+        """Consulta apenas o preço atual, sem o histórico de dividendos."""
+        try:
+            price = asyncio.run(self._price_from_brapi(ticker))
+            if price:
+                return price
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+            logger.warning("Falha na consulta de preço à BRAPI: ticker=%s tipo=%s", ticker, type(exc).__name__)
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(self._price_from_yahoo, ticker).result(timeout=8.0)
+        except TimeoutError:
+            logger.warning("Timeout na consulta de preço ao Yahoo Finance: ticker=%s", ticker)
+        except YAHOO_EXCEPTIONS + (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+            logger.warning("Falha na consulta de preço ao Yahoo Finance: ticker=%s tipo=%s", ticker, type(exc).__name__)
+        return None
+
+    async def _price_from_brapi(self, ticker: str) -> float | None:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            headers = {"Authorization": f"Bearer {settings.brapi_api_key}"} if settings.brapi_api_key else {}
+            response = await client.get(f"https://brapi.dev/api/quote/{ticker}", headers=headers)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+        results = response.json().get("results") or []
+        price = results[0].get("regularMarketPrice") if results else None
+        return float(price) if price else None
+
+    def _price_from_yahoo(self, ticker: str) -> float | None:
+        try:
+            import yfinance as yf
+        except ImportError:
+            return None
+        fast_info = yf.Ticker(f"{ticker}.SA").fast_info
+        price = fast_info.get("last_price") or fast_info.get("regular_market_price")
+        return float(price) if price else None
+
     async def _from_brapi(self, ticker: str) -> AssetData | None:
         url = f"https://brapi.dev/api/quote/{ticker}"
         async with httpx.AsyncClient(timeout=self.timeout) as client:

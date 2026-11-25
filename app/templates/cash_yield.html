@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f7fb">
+  <title>Cash-yield | Seleção de ações para compra</title>
+  <link rel="stylesheet" href="/static/styles.css?v=8">
+</head>
+<body data-theme="dark">
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Preço Justo Bazin - início">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>
+          <span class="eyebrow">Análise de dividendos</span>
+          <strong class="brand-title">Preço Justo Bazin</strong>
+        </span>
+      </a>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/#comparacao">Comparar ativos</a>
+        <a href="/cash-yield" aria-current="page">Cash-yield</a>
+        <a href="/ranking"{% if not ranking_enabled %} hidden{% endif %}>Ranking Bazin</a>
+      </nav>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar tema claro" title="Alternar tema">
+        <span aria-hidden="true">◐</span><span class="theme-label">Tema</span>
+      </button>
+    </header>
+
+    <section class="page-section">
+      <div class="section-heading section-heading-row">
+        <div>
+          <p class="eyebrow">Seleção por cash-yield</p>
+          <h1>{{ limit }} melhores ações para compra</h1>
+          <p class="section-subtitle">Ações da B3 cujo cash-yield (y1) esteve igual ou superior a 6% ao ano em cada um dos três últimos anos encerrados.</p>
+        </div>
+        <div class="section-actions">
+          <button id="cash-yield-refresh" class="secondary-button" type="button">Gerar lista</button>
+        </div>
+      </div>
+
+      <article class="panel interpretation">
+        <h3>Critérios</h3>
+        <dl class="interpretation-list">
+          <div><dt>Pré-qualificação</dt><dd>y1 = dividendos do último ano encerrado ÷ preço atual × 100, igual ou superior a 6.</dd></div>
+          <div><dt>Qualificação</dt><dd>Os três últimos anos encerrados devem ter dividendos pagos, com y1 igual ou superior a 6 em todos, indicando regularidade e consistência.</dd></div>
+          <div><dt>Ordenação</dt><dd>Pelo menor y1 dos três anos (consistência) e, em empate, pelo y1 do último ano.</dd></div>
+        </dl>
+        <p class="rate-label">Limitações: o y1 histórico usa o preço atual, pois a fonte não fornece o preço da época de cada pagamento. A análise não avalia endividamento, balanços, tarifas reguladas, notícias, empresas do mesmo grupo nem a conversão em dólar, etapas que exigem verificação manual.</p>
+      </article>
+
+      <p id="cash-yield-status" class="rate-label" role="status" aria-live="polite"></p>
+      <p id="cash-yield-message" class="message" role="alert" aria-live="polite"></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Ticker</th><th>Empresa</th><th>Preço atual</th><th>y1 (último ano)</th><th>y1 mínimo (3 anos)</th><th>y1 por ano</th></tr></thead>
+          <tbody id="cash-yield-body"><tr><td colspan="7" class="empty-state">Clique em "Gerar lista" para analisar as ações do catálogo. A consulta às fontes pode levar vários minutos e o resultado fica salvo para as próximas visitas.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. A seleção por cash-yield utiliza dividendos históricos, que não garantem resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
+  </main>
+  <script src="/static/cash-yield.js?v=1" defer></script>
+</body>
+</html>

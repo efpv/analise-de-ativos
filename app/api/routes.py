@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from app.core.config import settings
 from app.repositories.valuation_repository import ValuationRepository
 from app.models.valuation import DividendPeriod, Valuation
+from app.schemas.cash_yield import CashYieldItem, CashYieldResponse, YearYieldResponse
 from app.schemas.valuation import (
     ComparisonResponse,
     DividendHistory,
@@ -18,6 +19,7 @@ from app.schemas.valuation import (
     RankingResponse,
     ValuationResponse,
 )
+from app.services.cash_yield_service import CashYieldService
 from app.services.ticker_service import TickerService
 from app.services.sector_peer_service import SectorPeerService
 from app.services.valuation_service import ValuationService
@@ -28,6 +30,8 @@ repository = ValuationRepository()
 ticker_service = TickerService()
 valuation_service = ValuationService()
 sector_peer_service = SectorPeerService()
+cash_yield_service = CashYieldService(ticker_service)
+CASH_YIELD_LIMIT = 30
 RANKING_TICKERS = ("BBAS3", "BBSE3", "ITSA4", "PETR4", "TAEE11", "CMIG4", "TRPL4", "SAPR4")
 
 
@@ -163,6 +167,43 @@ def get_ranking(
     )
 
 
+def _cash_yield_response() -> CashYieldResponse:
+    running, processed, total, snapshot = cash_yield_service.status()
+    items = [
+        CashYieldItem(
+            posicao=position, ticker=item.ticker, empresa=item.empresa,
+            preco_atual=round(item.preco_atual, 8), y1=round(item.y1, 4),
+            y1_minimo=round(item.y1_minimo, 4),
+            anos=[
+                YearYieldResponse(ano=year.ano, dividendos=round(year.dividendos, 8), y1=round(year.y1, 4))
+                for year in item.anos
+            ],
+            fonte=item.fonte,
+        )
+        for position, item in enumerate(snapshot.candidatos[:CASH_YIELD_LIMIT], start=1)
+    ] if snapshot else []
+    return CashYieldResponse(
+        status="calculando" if running else "pronto" if snapshot else "vazio",
+        processados=processed, total=total,
+        atualizado_em=snapshot.atualizado_em if snapshot else None,
+        total_analisados=snapshot.total_analisados if snapshot else None,
+        total_qualificados=snapshot.total_qualificados if snapshot else None,
+        itens=items,
+        avisos=list(snapshot.avisos) if snapshot else [],
+    )
+
+
+@router.get("/api/v1/cash-yield", response_model=CashYieldResponse)
+def get_cash_yield():
+    return _cash_yield_response()
+
+
+@router.post("/api/v1/cash-yield/refresh", response_model=CashYieldResponse, status_code=202)
+def refresh_cash_yield():
+    cash_yield_service.start()
+    return _cash_yield_response()
+
+
 @router.get("/api/v1/comparison", response_model=ComparisonResponse)
 def compare_assets(
     tickers: list[str] = Query(...),
@@ -212,4 +253,11 @@ def ranking_page(request: Request):
         request,
         "index.html",
         {"history": repository.recent(), "ranking_enabled": settings.ranking_enabled},
+    )
+
+
+@router.get("/cash-yield", response_class=HTMLResponse)
+def cash_yield_page(request: Request):
+    return templates.TemplateResponse(
+        request, "cash_yield.html", {"ranking_enabled": settings.ranking_enabled, "limit": CASH_YIELD_LIMIT}
     )

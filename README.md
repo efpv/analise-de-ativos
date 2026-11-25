@@ -28,12 +28,14 @@ O ranking está temporariamente desativado por padrão para reduzir consultas à
 - Ao consultar um ticker com pares setoriais cadastrados, a comparação é preenchida e executada automaticamente. Os grupos de pares são uma lista curada em `app/services/sector_peer_service.py`; quando um provedor não retorna dados para um par, os demais ativos disponíveis continuam sendo exibidos. A comparação automática continua gerando consultas, mesmo com o ranking desativado.
 - Clique no ticker de uma coluna da comparação para calcular e carregar sua análise, mantendo a taxa e o período selecionados. Quando o ranking estiver ativado, atualize-o após alterar esses parâmetros.
 - O campo de ativo pesquisa localmente por ticker, símbolo Yahoo ou nome, inclusive sem acentos, e apresenta até 10 sugestões selecionáveis por mouse ou teclado. O catálogo `data/ativos_b3.json` é carregado uma vez por página; trata-se de um snapshot sem atualização automática ou garantia de cobertura completa. A consulta do ativo selecionado ainda depende das fontes de mercado.
+- A página `/cash-yield` lista as 30 melhores ações para compra pelo critério de cash-yield: y1 = dividendos do ano ÷ preço atual × 100 igual ou superior a 6 em cada um dos três últimos anos civis encerrados, com dividendos pagos em todos eles. A ordenação usa o menor y1 dos três anos e, em empate, o y1 do último ano. O universo são as ações e units de `data/ativos_b3.json`; o botão "Gerar lista" inicia uma varredura em segundo plano (pode levar vários minutos) e o resultado é salvo em `data/cash_yield_cache.json` (configurável por `CASH_YIELD_CACHE_PATH`; `CASH_YIELD_WORKERS` define as consultas simultâneas, padrão 4). Os dados de cada ativo ficam salvos no SQLite da aplicação (`DATABASE_PATH`): os dividendos são reutilizados por 30 dias (ou até a virada do ano) e o preço por 1 dia; só o que estiver vencido é consultado novamente, e ativos não encontrados são lembrados por 1 dia. O y1 histórico usa o preço atual, pois as fontes não informam o preço da época de cada pagamento, e a análise não avalia endividamento, balanços, tarifas, notícias, empresas do mesmo grupo nem a conversão em dólar.
 - A interface usa tema escuro por padrão, respeita a preferência salva e oferece carregamento visual e layout responsivo.
 
 ## API
 
 - `GET /api/v1/valuation/{ticker}?taxa=0.06&periodo=5anos` calcula um ativo.
 - `GET /api/v1/ranking?ordem=potencial` consulta o ranking quando habilitado; caso contrário, retorna HTTP 503 sem consultar as fontes. `ordem` aceita `potencial`, `dy` ou `classificacao`.
+- `GET /api/v1/cash-yield` retorna o último resultado da seleção por cash-yield (`status`: `vazio`, `calculando` ou `pronto`); `POST /api/v1/cash-yield/refresh` inicia uma nova varredura e responde HTTP 202.
 - `GET /api/v1/comparison?tickers=ITSA4&tickers=BBAS3` compara de um a quatro ativos.
 
 As taxas da API são decimais: `0.06` representa 6%. Na interface, a taxa é informada em porcentagem.
