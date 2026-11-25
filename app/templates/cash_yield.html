@@ -35,9 +35,6 @@
           <h1>{{ limit }} melhores ações para compra</h1>
           <p class="section-subtitle">Ações da B3 cujo cash-yield (y1) esteve igual ou superior a 6% ao ano em cada um dos três últimos anos encerrados.</p>
         </div>
-        <div class="section-actions">
-          <button id="cash-yield-refresh" class="secondary-button" type="button">Gerar lista</button>
-        </div>
       </div>
 
       <article class="panel interpretation">
@@ -63,12 +60,12 @@
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1_minimo">y1 mínimo (3 anos)</button></th>
             <th>y1 por ano</th>
           </tr></thead>
-          <tbody id="cash-yield-body"><tr><td colspan="7" class="empty-state">Clique em "Gerar lista" para analisar as ações do catálogo. A consulta às fontes pode levar vários minutos e o resultado fica salvo para as próximas visitas.</td></tr></tbody>
+          <tbody id="cash-yield-body"><tr><td colspan="7" class="empty-state">A lista ainda não foi gerada. Acesse /gerarlista para iniciar a análise.</td></tr></tbody>
         </table>
       </div>
     </section>
     <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. A seleção por cash-yield utiliza dividendos históricos, que não garantem resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
   </main>
-  <script src="/static/cash-yield.js?v=2" defer></script>
+  <script src="/static/cash-yield.js?v=3" defer></script>
 </body>
 </html>

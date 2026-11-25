@@ -142,6 +142,14 @@ def test_pagina_cash_yield():
     assert response.status_code == 200
     assert "30 melhores ações" in response.text
     assert "cash-yield-body" in response.text
+    assert 'id="cash-yield-refresh"' not in response.text
+
+
+def test_pagina_atualizacao_cash_yield():
+    response = TestClient(app).get("/gerarlista")
+    assert response.status_code == 200
+    assert "<title>Atualizar Cash-yield" in response.text
+    assert 'id="cash-yield-refresh"' in response.text
 
 
 def age_cache(repository, ticker, dividends_days=0, price_days=0):
