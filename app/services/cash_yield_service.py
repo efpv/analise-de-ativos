@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.models.cash_yield import CashYieldCandidate, CashYieldSnapshot, YearYield
 from app.models.valuation import AssetData
 from app.repositories.asset_cache_repository import AssetCacheRepository
+from app.repositories.firestore_store import FirestoreAssetCache, FirestoreStateStore
 from app.services.ticker_service import TickerService
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,8 @@ CATALOG_PATH = Path(__file__).resolve().parents[2] / "data" / "ativos_b3.json"
 CATALOG_TYPES = ("STOCK", "UNIT")
 DIVIDENDS_TTL = timedelta(days=30)
 PRICE_TTL = timedelta(days=1)
+STALE_SCAN = timedelta(minutes=10)
+PROGRESS_EVERY = 10
 
 
 def evaluate(asset: AssetData, today: date | None = None) -> CashYieldCandidate | None:
@@ -64,10 +67,13 @@ def catalog_tickers() -> list[str]:
 class CashYieldService:
     def __init__(
         self, ticker_service: TickerService | None = None, cache_path: str | None = None,
-        asset_cache: AssetCacheRepository | None = None,
+        asset_cache: AssetCacheRepository | FirestoreAssetCache | None = None,
+        state_store: FirestoreStateStore | None = None,
     ) -> None:
         self.ticker_service = ticker_service or TickerService()
-        self._asset_cache = asset_cache
+        use_firestore = settings.storage_backend == "firestore"
+        self._asset_cache = asset_cache or (FirestoreAssetCache() if use_firestore else None)
+        self._state_store = state_store or (FirestoreStateStore() if use_firestore else None)
         self._cache_path = cache_path
         self._lock = threading.Lock()
         self._running = False
@@ -110,7 +116,25 @@ class CashYieldService:
         self.asset_cache.save_asset(asset, now)
         return asset
 
+    def _remote_progress(self) -> tuple[bool, int, int]:
+        data = self._state_store.get_progress()
+        if not data:
+            return False, 0, 0
+        fresh = datetime.now(timezone.utc) - datetime.fromisoformat(data["atualizado_em"]) < STALE_SCAN
+        return bool(data["executando"]) and fresh, data["processados"], data["total"]
+
+    def _save_progress(self, running: bool, processed: int, total: int) -> None:
+        if self._state_store:
+            self._state_store.set_progress({
+                "executando": running, "processados": processed, "total": total,
+                "atualizado_em": datetime.now(timezone.utc).isoformat(),
+            })
+
     def status(self) -> tuple[bool, int, int, CashYieldSnapshot | None]:
+        if self._state_store:
+            running, processed, total = self._remote_progress()
+            data = self._state_store.get_snapshot()
+            return running, processed, total, self._snapshot_from_dict(data) if data else None
         with self._lock:
             if not self._loaded:
                 self._snapshot = self._read_cache()
@@ -118,6 +142,8 @@ class CashYieldService:
             return self._running, self._processed, self._total, self._snapshot
 
     def start(self, tickers: list[str] | None = None, wait: bool = False) -> bool:
+        if self._state_store and self._remote_progress()[0]:
+            return False
         with self._lock:
             if self._running:
                 return False
@@ -125,6 +151,7 @@ class CashYieldService:
             self._running = True
             self._processed = 0
             self._total = len(universe)
+        self._save_progress(True, 0, len(universe))
         worker = threading.Thread(target=self._scan, args=(universe,), daemon=True)
         worker.start()
         if wait:
@@ -150,6 +177,9 @@ class CashYieldService:
             finally:
                 with self._lock:
                     self._processed += 1
+                    processed = self._processed
+                if processed % PROGRESS_EVERY == 0:
+                    self._save_progress(True, processed, len(tickers))
 
         try:
             with ThreadPoolExecutor(max_workers=max(1, settings.cash_yield_workers)) as executor:
@@ -172,22 +202,27 @@ class CashYieldService:
         finally:
             with self._lock:
                 self._running = False
+                processed = self._processed
+            self._save_progress(False, processed, len(tickers))
+
+    @staticmethod
+    def _snapshot_from_dict(data: dict) -> CashYieldSnapshot:
+        return CashYieldSnapshot(
+            atualizado_em=datetime.fromisoformat(data["atualizado_em"]),
+            total_analisados=data["total_analisados"],
+            total_qualificados=data["total_qualificados"],
+            candidatos=tuple(
+                CashYieldCandidate(
+                    **{**item, "anos": tuple(YearYield(**year) for year in item["anos"])}
+                )
+                for item in data["candidatos"]
+            ),
+            avisos=tuple(data.get("avisos", ())),
+        )
 
     def _read_cache(self) -> CashYieldSnapshot | None:
         try:
-            data = json.loads(self.cache_path.read_text(encoding="utf-8"))
-            return CashYieldSnapshot(
-                atualizado_em=datetime.fromisoformat(data["atualizado_em"]),
-                total_analisados=data["total_analisados"],
-                total_qualificados=data["total_qualificados"],
-                candidatos=tuple(
-                    CashYieldCandidate(
-                        **{**item, "anos": tuple(YearYield(**year) for year in item["anos"])}
-                    )
-                    for item in data["candidatos"]
-                ),
-                avisos=tuple(data.get("avisos", ())),
-            )
+            return self._snapshot_from_dict(json.loads(self.cache_path.read_text(encoding="utf-8")))
         except FileNotFoundError:
             return None
         except (OSError, ValueError, KeyError, TypeError):
@@ -197,6 +232,9 @@ class CashYieldService:
     def _write_cache(self, snapshot: CashYieldSnapshot) -> None:
         data = asdict(snapshot)
         data["atualizado_em"] = snapshot.atualizado_em.isoformat()
+        if self._state_store:
+            self._state_store.set_snapshot(data)
+            return
         try:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             self.cache_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
