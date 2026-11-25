@@ -172,6 +172,10 @@ tbody tr:hover { background: color-mix(in srgb, var(--soft) 55%, var(--surface))
 .ticker-cell { color: var(--navy); font-weight: 800; }
 .comparison-ticker { border: 0; padding: 2px 0; background: transparent; color: var(--blue); font-weight: 800; text-decoration: underline; cursor: pointer; }
 .comparison-ticker:disabled { opacity: 0.6; cursor: wait; }
+.sort-button { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer; }
+.sort-button:hover { color: var(--blue); }
+th[aria-sort="ascending"] .sort-button::after { content: "▲"; font-size: 9px; }
+th[aria-sort="descending"] .sort-button::after { content: "▼"; font-size: 9px; }
 .table-badge { padding: 6px 9px; font-size: 10px; }
 .empty-state { padding: 20px; color: var(--muted); text-align: center; white-space: normal; }
 .comparison-form { margin-bottom: 7px; box-shadow: none; }

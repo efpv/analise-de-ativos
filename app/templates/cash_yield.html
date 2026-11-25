@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f7fb">
   <title>Cash-yield | Seleção de ações para compra</title>
-  <link rel="stylesheet" href="/static/styles.css?v=8">
+  <link rel="stylesheet" href="/static/styles.css?v=9">
 </head>
 <body data-theme="dark">
   <main class="app-shell">
@@ -54,13 +54,21 @@
       <p id="cash-yield-message" class="message" role="alert" aria-live="polite"></p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Ticker</th><th>Empresa</th><th>Preço atual</th><th>y1 (último ano)</th><th>y1 mínimo (3 anos)</th><th>y1 por ano</th></tr></thead>
+          <thead><tr>
+            <th aria-sort="none"><button class="sort-button" type="button" data-sort="posicao">#</button></th>
+            <th aria-sort="none"><button class="sort-button" type="button" data-sort="ticker">Ticker</button></th>
+            <th aria-sort="none"><button class="sort-button" type="button" data-sort="empresa">Empresa</button></th>
+            <th aria-sort="none"><button class="sort-button" type="button" data-sort="preco_atual">Preço atual</button></th>
+            <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1">y1 (último ano)</button></th>
+            <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1_minimo">y1 mínimo (3 anos)</button></th>
+            <th>y1 por ano</th>
+          </tr></thead>
           <tbody id="cash-yield-body"><tr><td colspan="7" class="empty-state">Clique em "Gerar lista" para analisar as ações do catálogo. A consulta às fontes pode levar vários minutos e o resultado fica salvo para as próximas visitas.</td></tr></tbody>
         </table>
       </div>
     </section>
     <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. A seleção por cash-yield utiliza dividendos históricos, que não garantem resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
   </main>
-  <script src="/static/cash-yield.js?v=1" defer></script>
+  <script src="/static/cash-yield.js?v=2" defer></script>
 </body>
 </html>

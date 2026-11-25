@@ -6,6 +6,10 @@ const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 const decimal = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const POLL_INTERVAL_MS = 3000;
 let pollTimer = null;
+let currentItems = [];
+let emptyText = "";
+let sortKey = "posicao";
+let sortDirection = "asc";
 
 function cell(text, className) {
   const element = document.createElement("td");
@@ -14,7 +18,28 @@ function cell(text, className) {
   return element;
 }
 
-function renderRows(items, emptyText) {
+function sortedItems() {
+  const direction = sortDirection === "asc" ? 1 : -1;
+  return [...currentItems].sort((a, b) => {
+    const left = a[sortKey];
+    const right = b[sortKey];
+    const result = typeof left === "string" ? left.localeCompare(right, "pt-BR") : left - right;
+    return result * direction || a.posicao - b.posicao;
+  });
+}
+
+function renderRows(items, text) {
+  currentItems = items;
+  emptyText = text;
+  drawRows();
+}
+
+function drawRows() {
+  const items = sortedItems();
+  document.querySelectorAll("th[aria-sort]").forEach((header) => {
+    const key = header.querySelector("[data-sort]").dataset.sort;
+    header.setAttribute("aria-sort", key === sortKey ? (sortDirection === "asc" ? "ascending" : "descending") : "none");
+  });
   body.replaceChildren();
   if (!items.length) {
     const row = document.createElement("tr");
@@ -77,6 +102,15 @@ async function request(url, options) {
 function load() {
   return request("/api/v1/cash-yield");
 }
+
+document.querySelectorAll("[data-sort]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const key = button.dataset.sort;
+    sortDirection = key === sortKey && sortDirection === "asc" ? "desc" : "asc";
+    sortKey = key;
+    drawRows();
+  });
+});
 
 refreshButton.addEventListener("click", () => {
   refreshButton.disabled = true;
