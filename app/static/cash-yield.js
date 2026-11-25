@@ -35,6 +35,7 @@ function renderRows(items, text) {
 }
 
 function drawRows() {
+  if (!body) return;
   const items = sortedItems();
   document.querySelectorAll("th[aria-sort]").forEach((header) => {
     const key = header.querySelector("[data-sort]").dataset.sort;
@@ -66,8 +67,10 @@ function drawRows() {
 
 function render(data) {
   const running = data.status === "calculando";
-  refreshButton.disabled = running;
-  refreshButton.textContent = data.status === "vazio" ? "Gerar lista" : "Atualizar lista";
+  if (refreshButton) {
+    refreshButton.disabled = running;
+    refreshButton.textContent = data.status === "vazio" ? "Gerar lista" : "Atualizar lista";
+  }
   messageText.textContent = "";
   const parts = [];
   if (running) parts.push(`Analisando ativos: ${data.processados} de ${data.total}...`);
@@ -79,10 +82,12 @@ function render(data) {
   }
   parts.push(...data.avisos);
   statusText.textContent = parts.join(" ");
-  if (data.status === "vazio") {
-    renderRows([], "Clique em \"Gerar lista\" para analisar as ações do catálogo. A consulta às fontes pode levar vários minutos e o resultado fica salvo para as próximas visitas.");
-  } else if (data.atualizado_em || !running) {
-    renderRows(data.itens, "Nenhuma ação atendeu aos critérios nesta análise.");
+  if (body) {
+    if (data.status === "vazio") {
+      renderRows([], "A lista ainda não foi gerada. Acesse /gerarlista para iniciar a análise.");
+    } else if (data.atualizado_em || !running) {
+      renderRows(data.itens, "Nenhuma ação atendeu aos critérios nesta análise.");
+    }
   }
   clearTimeout(pollTimer);
   if (running) pollTimer = setTimeout(load, POLL_INTERVAL_MS);
@@ -95,7 +100,7 @@ async function request(url, options) {
     render(await response.json());
   } catch {
     messageText.textContent = "Não foi possível consultar a seleção agora. Tente novamente.";
-    refreshButton.disabled = false;
+    if (refreshButton) refreshButton.disabled = false;
   }
 }
 
@@ -112,10 +117,12 @@ document.querySelectorAll("[data-sort]").forEach((button) => {
   });
 });
 
-refreshButton.addEventListener("click", () => {
-  refreshButton.disabled = true;
-  request("/api/v1/cash-yield/refresh", { method: "POST" });
-});
+if (refreshButton) {
+  refreshButton.addEventListener("click", () => {
+    refreshButton.disabled = true;
+    request("/api/v1/cash-yield/refresh", { method: "POST" });
+  });
+}
 
 const themeToggle = document.getElementById("theme-toggle");
 const savedTheme = localStorage.getItem("bazin-theme");

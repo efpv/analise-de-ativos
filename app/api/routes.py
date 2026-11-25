@@ -261,3 +261,10 @@ def cash_yield_page(request: Request):
     return templates.TemplateResponse(
         request, "cash_yield.html", {"ranking_enabled": settings.ranking_enabled, "limit": CASH_YIELD_LIMIT}
     )
+
+
+@router.get("/gerarlista", response_class=HTMLResponse)
+def cash_yield_update_page(request: Request):
+    return templates.TemplateResponse(
+        request, "cash_yield_update.html", {"ranking_enabled": settings.ranking_enabled}
+    )
