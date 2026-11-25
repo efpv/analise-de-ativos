@@ -8,6 +8,7 @@ from app.api import routes
 from app.main import app
 from app.models.valuation import AssetData
 from app.repositories.asset_cache_repository import AssetCacheRepository
+from app.repositories.firestore_store import FirestoreAssetCache, FirestoreStateStore
 from app.services.cash_yield_service import CashYieldService, evaluate, rank
 
 TODAY = date(2026, 6, 1)
@@ -185,3 +186,71 @@ def test_ativo_nao_encontrado_fica_salvo_por_um_dia(tmp_path):
         with pytest.raises(LookupError):
             service.load_asset("FALHA3")
     assert service.ticker_service.asset_calls == ["FALHA3"]
+
+
+class FakeDocument:
+    def __init__(self, store, name):
+        self.store, self.name = store, name
+
+    @property
+    def exists(self):
+        return self.name in self.store
+
+    def get(self):
+        return self
+
+    def to_dict(self):
+        return self.store.get(self.name)
+
+    def set(self, data):
+        self.store[self.name] = dict(data)
+
+    def update(self, data):
+        self.store[self.name].update(data)
+
+
+class FakeFirestore:
+    def __init__(self):
+        self.data = {}
+
+    def collection(self, name):
+        store = self.data.setdefault(name, {})
+        return SimpleNamespace(document=lambda doc: FakeDocument(store, doc))
+
+
+def firestore_service(assets, client):
+    return CashYieldService(
+        FakeTickerService(assets), asset_cache=FirestoreAssetCache(client), state_store=FirestoreStateStore(client),
+    )
+
+
+def test_firestore_sobrevive_a_nova_instancia():
+    client = FakeFirestore()
+    first = firestore_service({"AAAA3": qualifying("AAAA3"), "BBBB3": qualifying("BBBB3", 5.0)}, client)
+    first.start(["AAAA3", "BBBB3"], wait=True)
+
+    second = firestore_service({}, client)
+    running, processed, total, snapshot = second.status()
+    assert not running and processed == total == 2
+    assert [item.ticker for item in snapshot.candidatos] == ["BBBB3", "AAAA3"]
+    assert second.load_asset("AAAA3").preco_atual == pytest.approx(10.0)
+    assert second.ticker_service.asset_calls == []
+
+
+def test_firestore_impede_varredura_simultanea_entre_instancias():
+    client = FakeFirestore()
+    other = firestore_service({}, client)
+    other._save_progress(True, 5, 10)
+    service = firestore_service({"AAAA3": qualifying("AAAA3")}, client)
+    assert service.status()[:3] == (True, 5, 10)
+    assert service.start(["AAAA3"], wait=True) is False
+
+
+def test_varredura_travada_ha_mais_de_10_minutos_e_ignorada():
+    client = FakeFirestore()
+    service = firestore_service({"AAAA3": qualifying("AAAA3")}, client)
+    service._save_progress(True, 5, 10)
+    progress = client.data["cash_yield"]["progress"]
+    progress["atualizado_em"] = (datetime.now(timezone.utc) - timedelta(minutes=11)).isoformat()
+    assert service.status()[0] is False
+    assert service.start(["AAAA3"], wait=True) is True
