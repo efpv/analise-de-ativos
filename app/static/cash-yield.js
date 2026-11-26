@@ -28,6 +28,19 @@ function sortedItems() {
   });
 }
 
+function tickerCell(ticker) {
+  const element = cell("", "ticker-cell");
+  const link = document.createElement("a");
+  link.href = `https://investidor10.com.br/acoes/${encodeURIComponent(ticker.toLowerCase())}/`;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.className = "ticker-link";
+  link.textContent = ticker;
+  link.title = `Abrir ${ticker} no Investidor10`;
+  element.appendChild(link);
+  return element;
+}
+
 function renderRows(items, text) {
   currentItems = items;
   emptyText = text;
@@ -54,7 +67,7 @@ function drawRows() {
     const row = document.createElement("tr");
     row.append(
       cell(item.posicao),
-      cell(item.ticker, "ticker-cell"),
+      tickerCell(item.ticker),
       cell(item.empresa),
       cell(currency.format(item.preco_atual)),
       cell(`${decimal.format(item.y1)}%`),
