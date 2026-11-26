@@ -7,7 +7,7 @@ from math import isfinite
 import httpx
 
 from app.core.config import settings
-from app.models.valuation import AssetData, DividendPayment
+from app.models.valuation import AssetData, DividendPayment, Fundamentals
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,50 @@ class ApiClient:
                 extra={"ticker": ticker, "provider": "yahoo", "error_type": type(exc).__name__},
             )
         return None
+
+    def get_fundamentals(self, ticker: str) -> Fundamentals | None:
+        """Indicadores de balanço do Yahoo Finance; None quando a consulta falha (nova tentativa depois)."""
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(self._fundamentals_from_yahoo, ticker).result(timeout=8.0)
+        except TimeoutError:
+            logger.warning("Timeout na consulta de indicadores ao Yahoo Finance: ticker=%s", ticker)
+        except YAHOO_EXCEPTIONS + (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+            logger.warning("Falha na consulta de indicadores: ticker=%s tipo=%s", ticker, type(exc).__name__)
+        return None
+
+    def _fundamentals_from_yahoo(self, ticker: str) -> Fundamentals | None:
+        try:
+            import yfinance as yf
+        except ImportError:
+            return None
+        info = yf.Ticker(f"{ticker}.SA").info or {}
+
+        def number(*keys: str) -> float | None:
+            for key in keys:
+                try:
+                    value = float(info[key])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if isfinite(value):
+                    return value
+            return None
+
+        debt, cash = number("totalDebt"), number("totalCash")
+        volume, price = number("averageVolume", "averageDailyVolume3Month"), number(
+            "currentPrice", "regularMarketPrice", "previousClose"
+        )
+        roe = number("returnOnEquity")
+        return Fundamentals(
+            divida_liquida=debt - cash if debt is not None and cash is not None else None,
+            ebitda=number("ebitda"),
+            liquidez_corrente=number("currentRatio"),
+            p_vp=number("priceToBook"),
+            roe=roe * 100 if roe is not None else None,
+            volume_financeiro=volume * price if volume is not None and price is not None else None,
+            fluxo_caixa_operacional=number("operatingCashflow"),
+            fluxo_caixa_livre=number("freeCashflow"),
+        )
 
     def get_price(self, ticker: str) -> float | None:
         """Consulta apenas o preço atual, sem o histórico de dividendos."""

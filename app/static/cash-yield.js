@@ -10,6 +10,8 @@ let currentItems = [];
 let emptyText = "";
 let sortKey = "posicao";
 let sortDirection = "asc";
+const panel = document.getElementById("analysis-panel");
+const VERDICTS = { aprovada: "Aprovada", atencao: "Atenção", aprovado: "Aprovado", reprovado: "Reprovado", reprovada: "Reprovada" };
 
 function cell(text, className) {
   const element = document.createElement("td");
@@ -23,6 +25,7 @@ function sortedItems() {
   return [...currentItems].sort((a, b) => {
     const left = a[sortKey];
     const right = b[sortKey];
+    if (sortKey === "veredito") return (a.veredito === "aprovada" ? 0 : 1) * direction || a.posicao - b.posicao;
     const result = typeof left === "string" ? left.localeCompare(right, "pt-BR") : left - right;
     return result * direction || a.posicao - b.posicao;
   });
@@ -39,6 +42,106 @@ function tickerCell(ticker) {
   link.title = `Abrir ${ticker} no Investidor10`;
   element.appendChild(link);
   return element;
+}
+
+function badge(status) {
+  const element = document.createElement("span");
+  element.className = `badge badge-${status}`;
+  element.textContent = VERDICTS[status] || status;
+  return element;
+}
+
+function verdictCell(item) {
+  const element = cell("");
+  element.appendChild(badge(item.veredito));
+  if (item.alertas.length) element.title = item.alertas.join("\n");
+  return element;
+}
+
+function debtCell(item) {
+  const criterion = item.criterios.find((entry) => entry.nome === "Dívida líquida / EBITDA");
+  return cell(criterion && criterion.valor ? criterion.valor : "—");
+}
+
+function analysisCell(item) {
+  const element = cell("");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "sort-button";
+  button.textContent = "Análise";
+  button.addEventListener("click", () => showAnalysis(item.ticker, button));
+  element.appendChild(button);
+  return element;
+}
+
+function section(title, children) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "analysis-section";
+  const heading = document.createElement("h4");
+  heading.textContent = title;
+  wrapper.append(heading, ...children);
+  return wrapper;
+}
+
+function paragraph(text) {
+  const element = document.createElement("p");
+  element.textContent = text;
+  return element;
+}
+
+function list(entries) {
+  const element = document.createElement("ul");
+  entries.forEach((entry) => {
+    const item = document.createElement("li");
+    if (typeof entry === "string") {
+      item.textContent = entry;
+    } else {
+      item.append(badge(entry.status), ` ${entry.nome}${entry.valor ? ` (${entry.valor})` : ""}: ${entry.texto}`);
+    }
+    element.appendChild(item);
+  });
+  return element;
+}
+
+function money(value) {
+  return value === null || value === undefined ? "indisponível" : currency.format(value);
+}
+
+function renderAnalysis(data) {
+  const price = data.preco_teto;
+  const title = document.createElement("h3");
+  title.append(`${data.ticker} — ${data.empresa} `, badge(data.veredito));
+  const margin = (value) => (value === null ? "" : ` (margem ${decimal.format(value)}%)`);
+  panel.replaceChildren(
+    title,
+    section("Resumo executivo / Veredito Bazin", [paragraph(data.resumo), list(data.criterios_principais)]),
+    section("Preço-teto e dividendos", [
+      list([
+        `DPA dos últimos 12 meses: ${money(price.dpa_ltm)} → preço-teto ${money(price.preco_teto_ltm)}${margin(price.margem_ltm)}`,
+        `DPA médio de 5 anos: ${money(price.dpa_media_5anos)} → preço-teto ${money(price.preco_teto_media_5anos)}${margin(price.margem_media_5anos)}`,
+        `Cenário conservador: ${money(price.cenario_conservador)} · cotação atual ${money(data.preco_atual)} · rendimento mínimo ${decimal.format(price.taxa * 100)}%`,
+      ]),
+      list(price.observacoes),
+    ]),
+    section("Saúde financeira e indicadores", [list(data.saude_financeira)]),
+    section("Riscos e pontos de atenção", [list(data.riscos)]),
+  );
+  panel.hidden = false;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function showAnalysis(ticker, button) {
+  button.disabled = true;
+  messageText.textContent = "";
+  try {
+    const response = await fetch(`/api/v1/cash-yield/${encodeURIComponent(ticker)}/analise`);
+    if (!response.ok) throw new Error();
+    renderAnalysis(await response.json());
+  } catch {
+    messageText.textContent = `Não foi possível carregar a análise de ${ticker} agora.`;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderRows(items, text) {
@@ -58,7 +161,7 @@ function drawRows() {
   if (!items.length) {
     const row = document.createElement("tr");
     const empty = cell(emptyText, "empty-state");
-    empty.colSpan = 7;
+    empty.colSpan = 10;
     row.appendChild(empty);
     body.appendChild(row);
     return;
@@ -73,6 +176,9 @@ function drawRows() {
       cell(`${decimal.format(item.y1)}%`),
       cell(`${decimal.format(item.y1_minimo)}%`),
       cell(item.anos.map((year) => `${year.ano}: ${decimal.format(year.y1)}%`).join(" · ")),
+      verdictCell(item),
+      debtCell(item),
+      analysisCell(item),
     );
     body.appendChild(row);
   });
@@ -90,7 +196,8 @@ function render(data) {
   if (data.atualizado_em) {
     parts.push(
       `Atualizado em ${new Date(data.atualizado_em).toLocaleString("pt-BR")}. `
-      + `${data.total_qualificados} de ${data.total_analisados} ativos analisados atenderam aos critérios.`,
+      + `${data.total_qualificados} de ${data.total_analisados} ativos analisados atenderam aos critérios.`
+      + (data.total_reprovados_fundamentos ? ` ${data.total_reprovados_fundamentos} excluídos por endividamento ou balanço.` : ""),
     );
   }
   parts.push(...data.avisos);

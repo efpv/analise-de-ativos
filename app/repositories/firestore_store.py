@@ -1,7 +1,8 @@
+from dataclasses import asdict
 from datetime import datetime
 
 from app.core.config import settings
-from app.models.valuation import AssetData
+from app.models.valuation import AssetData, Fundamentals
 from app.repositories.asset_cache_repository import CachedAsset
 
 
@@ -35,6 +36,7 @@ class FirestoreAssetCache:
                 ticker=ticker, empresa=data["empresa"], preco_atual=data["preco"], dividend_yield=None,
                 dividendos_historicos={int(year): value for year, value in data["dividendos"].items()},
                 fonte=data["fonte"],
+                fundamentos=Fundamentals(**data["fundamentos"]) if data.get("fundamentos") else None,
             )
         price_at = data.get("preco_em")
         return CachedAsset(
@@ -47,6 +49,7 @@ class FirestoreAssetCache:
             "encontrado": True, "empresa": asset.empresa, "fonte": asset.fonte,
             "preco": asset.preco_atual, "preco_em": now.isoformat(), "dividendos_em": now.isoformat(),
             "dividendos": {str(year): value for year, value in asset.dividendos_historicos.items()},
+            "fundamentos": asdict(asset.fundamentos) if asset.fundamentos else None,
         })
 
     def save_missing(self, ticker: str, now: datetime) -> None:
@@ -54,6 +57,10 @@ class FirestoreAssetCache:
 
     def update_price(self, ticker: str, price: float, now: datetime) -> None:
         self.collection.document(ticker).update({"preco": price, "preco_em": now.isoformat()})
+
+
+    def update_fundamentals(self, ticker: str, fundamentals: Fundamentals) -> None:
+        self.collection.document(ticker).update({"fundamentos": asdict(fundamentals)})
 
 
 class FirestoreStateStore:

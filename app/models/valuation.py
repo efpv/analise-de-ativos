@@ -13,6 +13,18 @@ class DividendPayment:
 
 
 @dataclass(frozen=True)
+class Fundamentals:
+    divida_liquida: float | None = None
+    ebitda: float | None = None
+    liquidez_corrente: float | None = None
+    p_vp: float | None = None
+    roe: float | None = None
+    volume_financeiro: float | None = None
+    fluxo_caixa_operacional: float | None = None
+    fluxo_caixa_livre: float | None = None
+
+
+@dataclass(frozen=True)
 class AssetData:
     ticker: str
     empresa: str
@@ -23,6 +35,7 @@ class AssetData:
     avisos: tuple[str, ...] = ()
     pagamentos: tuple[DividendPayment, ...] | None = None
     eventos_encontrados: int | None = None
+    fundamentos: Fundamentals | None = None
 
 
 @dataclass(frozen=True)

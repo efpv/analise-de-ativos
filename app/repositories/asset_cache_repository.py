@@ -1,12 +1,13 @@
 from collections.abc import Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 from datetime import datetime
 import sqlite3
 from pathlib import Path
 
 from app.core.config import settings
-from app.models.valuation import AssetData
+from app.models.valuation import AssetData, Fundamentals
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,9 @@ class AssetCacheRepository:
                 )
                 """
             )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(asset_cache)")}
+            if "fundamentos" not in columns:
+                connection.execute("ALTER TABLE asset_cache ADD COLUMN fundamentos TEXT")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS asset_dividends (
@@ -61,12 +65,12 @@ class AssetCacheRepository:
     def get(self, ticker: str) -> CachedAsset | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT encontrado, empresa, fonte, preco, preco_em, dividendos_em FROM asset_cache WHERE ticker = ?",
+                "SELECT encontrado, empresa, fonte, preco, preco_em, dividendos_em, fundamentos FROM asset_cache WHERE ticker = ?",
                 (ticker,),
             ).fetchone()
             if row is None:
                 return None
-            found, company, source, price, price_at, dividends_at = row
+            found, company, source, price, price_at, dividends_at, fundamentals = row
             asset = None
             if found:
                 history = dict(connection.execute(
@@ -75,6 +79,7 @@ class AssetCacheRepository:
                 asset = AssetData(
                     ticker=ticker, empresa=company, preco_atual=price, dividend_yield=None,
                     dividendos_historicos=history, fonte=source,
+                    fundamentos=Fundamentals(**json.loads(fundamentals)) if fundamentals else None,
                 )
             return CachedAsset(
                 ticker=ticker,
@@ -87,9 +92,12 @@ class AssetCacheRepository:
     def save_asset(self, asset: AssetData, now: datetime) -> None:
         with self._connect() as connection:
             connection.execute(
-                "INSERT OR REPLACE INTO asset_cache (ticker, encontrado, empresa, fonte, preco, preco_em, dividendos_em) "
-                "VALUES (?, 1, ?, ?, ?, ?, ?)",
-                (asset.ticker, asset.empresa, asset.fonte, asset.preco_atual, now.isoformat(), now.isoformat()),
+                "INSERT OR REPLACE INTO asset_cache (ticker, encontrado, empresa, fonte, preco, preco_em, dividendos_em, fundamentos) "
+                "VALUES (?, 1, ?, ?, ?, ?, ?, ?)",
+                (
+                    asset.ticker, asset.empresa, asset.fonte, asset.preco_atual, now.isoformat(), now.isoformat(),
+                    json.dumps(asdict(asset.fundamentos)) if asset.fundamentos else None,
+                ),
             )
             connection.execute("DELETE FROM asset_dividends WHERE ticker = ?", (asset.ticker,))
             connection.executemany(
@@ -110,4 +118,11 @@ class AssetCacheRepository:
             connection.execute(
                 "UPDATE asset_cache SET preco = ?, preco_em = ? WHERE ticker = ? AND encontrado = 1",
                 (price, now.isoformat(), ticker),
+            )
+
+    def update_fundamentals(self, ticker: str, fundamentals: Fundamentals) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE asset_cache SET fundamentos = ? WHERE ticker = ? AND encontrado = 1",
+                (json.dumps(asdict(fundamentals)), ticker),
             )

@@ -7,8 +7,9 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from app.core.config import settings
-from app.models.cash_yield import CashYieldCandidate, CashYieldSnapshot, YearYield
+from app.models.cash_yield import CashYieldCandidate, CashYieldSnapshot, Criterio, YearYield
 from app.models.valuation import AssetData
+from app.services.bazin_analysis import assess_fundamentals, dividend_alerts, verdict
 from app.repositories.asset_cache_repository import AssetCacheRepository
 from app.repositories.firestore_store import FirestoreAssetCache, FirestoreStateStore
 from app.services.ticker_service import TickerService
@@ -41,6 +42,7 @@ def evaluate(asset: AssetData, today: date | None = None) -> CashYieldCandidate 
         if dividends <= 0 or y1 < MIN_Y1:
             return None
         years.append(YearYield(ano=year, dividendos=dividends, y1=y1))
+    criteria = assess_fundamentals(asset.fundamentos)
     return CashYieldCandidate(
         ticker=asset.ticker,
         empresa=asset.empresa,
@@ -49,11 +51,15 @@ def evaluate(asset: AssetData, today: date | None = None) -> CashYieldCandidate 
         y1_minimo=min(item.y1 for item in years),
         anos=tuple(years),
         fonte=asset.fonte,
+        veredito=verdict(criteria),
+        criterios=tuple(criteria),
+        alertas=tuple(dividend_alerts(asset.dividendos_historicos, today)),
     )
 
 
 def rank(candidates: list[CashYieldCandidate]) -> list[CashYieldCandidate]:
-    return sorted(candidates, key=lambda item: (-item.y1_minimo, -item.y1, item.ticker))
+    order = {"aprovada": 0, "atencao": 1}
+    return sorted(candidates, key=lambda item: (order.get(item.veredito, 2), -item.y1_minimo, -item.y1, item.ticker))
 
 
 def catalog_tickers() -> list[str]:
@@ -116,6 +122,16 @@ class CashYieldService:
         self.asset_cache.save_asset(asset, now)
         return asset
 
+    def with_fundamentals(self, asset: AssetData) -> AssetData:
+        """Busca os indicadores de balanço apenas para ativos que já passaram no y1."""
+        if asset.fundamentos is not None:
+            return asset
+        fundamentals = self.ticker_service.get_fundamentals(asset.ticker)
+        if fundamentals is None:
+            return asset
+        self.asset_cache.update_fundamentals(asset.ticker, fundamentals)
+        return replace(asset, fundamentos=fundamentals)
+
     def _remote_progress(self) -> tuple[bool, int, int]:
         data = self._state_store.get_progress()
         if not data:
@@ -160,15 +176,20 @@ class CashYieldService:
 
     def _scan(self, tickers: list[str]) -> None:
         candidates: list[CashYieldCandidate] = []
+        rejected: list[str] = []
         failures = 0
 
         def process(ticker: str) -> None:
             nonlocal failures
             try:
-                candidate = evaluate(self.load_asset(ticker))
-                if candidate:
+                asset = self.load_asset(ticker)
+                if evaluate(asset):
+                    candidate = evaluate(self.with_fundamentals(asset))
                     with self._lock:
-                        candidates.append(candidate)
+                        if candidate.veredito == "reprovada":
+                            rejected.append(ticker)
+                        else:
+                            candidates.append(candidate)
             except Exception as exc:
                 if not isinstance(exc, (LookupError, ValueError)):
                     logger.exception("Falha inesperada na triagem cash-yield: ticker=%s", ticker)
@@ -184,14 +205,16 @@ class CashYieldService:
         try:
             with ThreadPoolExecutor(max_workers=max(1, settings.cash_yield_workers)) as executor:
                 list(executor.map(process, tickers))
-            warnings = (
-                (f"{failures} ativo(s) foram ignorados por falta de dados nas fontes consultadas.",)
-                if failures else ()
-            )
+            warnings = tuple(filter(None, (
+                f"{failures} ativo(s) foram ignorados por falta de dados nas fontes consultadas." if failures else "",
+                f"{len(rejected)} ativo(s) com y1 aprovado foram excluídos por endividamento, liquidez ou balanço."
+                if rejected else "",
+            )))
             snapshot = CashYieldSnapshot(
                 atualizado_em=datetime.now(timezone.utc),
                 total_analisados=len(tickers) - failures,
                 total_qualificados=len(candidates),
+                total_reprovados_fundamentos=len(rejected),
                 candidatos=tuple(rank(candidates)),
                 avisos=warnings,
             )
@@ -212,12 +235,16 @@ class CashYieldService:
             total_analisados=data["total_analisados"],
             total_qualificados=data["total_qualificados"],
             candidatos=tuple(
-                CashYieldCandidate(
-                    **{**item, "anos": tuple(YearYield(**year) for year in item["anos"])}
-                )
+                CashYieldCandidate(**{
+                    **item,
+                    "anos": tuple(YearYield(**year) for year in item["anos"]),
+                    "criterios": tuple(Criterio(**criterion) for criterion in item.get("criterios", ())),
+                    "alertas": tuple(item.get("alertas", ())),
+                })
                 for item in data["candidatos"]
             ),
             avisos=tuple(data.get("avisos", ())),
+            total_reprovados_fundamentos=data.get("total_reprovados_fundamentos", 0),
         )
 
     def _read_cache(self) -> CashYieldSnapshot | None:

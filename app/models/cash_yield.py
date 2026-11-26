@@ -10,6 +10,14 @@ class YearYield:
 
 
 @dataclass(frozen=True)
+class Criterio:
+    nome: str
+    status: str
+    valor: str | None
+    texto: str
+
+
+@dataclass(frozen=True)
 class CashYieldCandidate:
     ticker: str
     empresa: str
@@ -18,6 +26,9 @@ class CashYieldCandidate:
     y1_minimo: float
     anos: tuple[YearYield, ...]
     fonte: str
+    veredito: str = "aprovada"
+    criterios: tuple[Criterio, ...] = ()
+    alertas: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -27,3 +38,4 @@ class CashYieldSnapshot:
     total_qualificados: int
     candidatos: tuple[CashYieldCandidate, ...]
     avisos: tuple[str, ...] = ()
+    total_reprovados_fundamentos: int = 0

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.api import routes
 from app.main import app
-from app.models.valuation import AssetData
+from app.models.valuation import AssetData, Fundamentals
 from app.repositories.asset_cache_repository import AssetCacheRepository
 from app.repositories.firestore_store import FirestoreAssetCache, FirestoreStateStore
 from app.services.cash_yield_service import CashYieldService, evaluate, rank
@@ -55,9 +56,17 @@ def test_ordena_por_consistencia_e_depois_y1():
     assert [item.ticker for item in rank([b, a, c])] == ["AAAA3", "CCCC3", "BBBB3"]
 
 
+HEALTHY = Fundamentals(
+    divida_liquida=100.0, ebitda=100.0, liquidez_corrente=1.5, p_vp=1.2, roe=15.0,
+    volume_financeiro=20_000_000.0, fluxo_caixa_operacional=80.0, fluxo_caixa_livre=10.0,
+)
+
+
 class FakeTickerService:
-    def __init__(self, assets):
+    def __init__(self, assets, fundamentals=None):
         self.assets = assets
+        self.fundamentals = fundamentals or {}
+        self.fundamentals_calls = []
         self.asset_calls = []
         self.price_calls = []
 
@@ -66,6 +75,10 @@ class FakeTickerService:
         if ticker == "FALHA3":
             raise LookupError("Ativo não encontrado.")
         return self.assets[ticker]
+
+    def get_fundamentals(self, ticker):
+        self.fundamentals_calls.append(ticker)
+        return self.fundamentals.get(ticker, HEALTHY)
 
     def get_price(self, ticker):
         self.price_calls.append(ticker)
@@ -77,9 +90,9 @@ def qualifying(ticker, price=10.0):
     return asset(ticker, price, {year - 3: 0.7, year - 2: 0.8, year - 1: 0.9})
 
 
-def make_service(assets, tmp_path):
+def make_service(assets, tmp_path, fundamentals=None):
     return CashYieldService(
-        FakeTickerService(assets), str(tmp_path / "cache.json"),
+        FakeTickerService(assets, fundamentals), str(tmp_path / "cache.json"),
         AssetCacheRepository(str(tmp_path / "assets.sqlite")),
     )
 
@@ -262,3 +275,88 @@ def test_varredura_travada_ha_mais_de_10_minutos_e_ignorada():
     progress["atualizado_em"] = (datetime.now(timezone.utc) - timedelta(minutes=11)).isoformat()
     assert service.status()[0] is False
     assert service.start(["AAAA3"], wait=True) is True
+
+
+def status_of(candidate, name):
+    return next(item.status for item in candidate.criterios if item.nome == name)
+
+
+@pytest.mark.parametrize("changes,name,expected", [
+    ({"divida_liquida": 450.0}, "Dívida líquida / EBITDA", "reprovado"),
+    ({"divida_liquida": 250.0}, "Dívida líquida / EBITDA", "atencao"),
+    ({"divida_liquida": -10.0}, "Dívida líquida / EBITDA", "aprovado"),
+    ({"divida_liquida": 50.0, "ebitda": 0.0}, "Dívida líquida / EBITDA", "reprovado"),
+    ({"volume_financeiro": 500_000.0}, "Liquidez na bolsa", "reprovado"),
+    ({"volume_financeiro": 3_000_000.0}, "Liquidez na bolsa", "atencao"),
+    ({"fluxo_caixa_operacional": -1.0}, "Geração de caixa", "reprovado"),
+    ({"fluxo_caixa_livre": -5.0}, "Geração de caixa", "atencao"),
+    ({"roe": -3.0}, "ROE", "reprovado"),
+    ({"roe": 30.0, "divida_liquida": 250.0}, "ROE", "atencao"),
+    ({"liquidez_corrente": 0.7}, "Liquidez corrente", "atencao"),
+])
+def test_criterios_de_saude_financeira(changes, name, expected):
+    candidate = evaluate(replace(qualifying("AAAA3"), fundamentos=replace(HEALTHY, **changes)))
+    assert status_of(candidate, name) == expected
+
+
+def test_liquidez_corrente_e_pvp_nunca_reprovam():
+    candidate = evaluate(replace(qualifying("AAAA3"), fundamentos=replace(HEALTHY, liquidez_corrente=0.1, p_vp=9.0)))
+    assert candidate.veredito == "atencao"
+
+
+def test_sem_indicadores_fica_em_atencao_e_nao_reprova():
+    assert evaluate(qualifying("AAAA3")).veredito == "atencao"
+
+
+def test_alerta_de_dividendo_extraordinario_e_corte():
+    year = date.today().year
+    spike = asset("AAAA3", 5.0, {year - 3: 0.4, year - 2: 0.4, year - 1: 1.5})
+    assert any("extraordinário" in text for text in evaluate(spike).alertas)
+    cut = asset("BBBB3", 5.0, {year - 3: 0.8, year - 2: 0.9, year - 1: 0.35})
+    assert any("caiu mais de 50%" in text for text in evaluate(cut).alertas)
+    assert evaluate(qualifying("CCCC3")).alertas == ()
+
+
+def test_ranking_prioriza_aprovadas_sobre_atencao():
+    approved = evaluate(replace(qualifying("AAAA3", 10.0), fundamentos=HEALTHY))
+    attention = evaluate(replace(qualifying("BBBB3", 5.0)))
+    assert attention.y1_minimo > approved.y1_minimo
+    assert [item.ticker for item in rank([attention, approved])] == ["AAAA3", "BBBB3"]
+
+
+def test_varredura_exclui_reprovadas_por_balanco_e_busca_indicadores_so_de_quem_passou_no_y1(tmp_path):
+    year = date.today().year
+    assets = {
+        "AAAA3": qualifying("AAAA3"), "BBBB3": qualifying("BBBB3"),
+        "CCCC3": asset("CCCC3", dividends={year - 1: 0.1}),
+    }
+    debt = replace(HEALTHY, divida_liquida=900.0)
+    service = make_service(assets, tmp_path, {"BBBB3": debt})
+    service.start(["AAAA3", "BBBB3", "CCCC3"], wait=True)
+    snapshot = service.status()[3]
+    assert [item.ticker for item in snapshot.candidatos] == ["AAAA3"]
+    assert snapshot.total_reprovados_fundamentos == 1
+    assert any("endividamento" in text for text in snapshot.avisos)
+    assert sorted(service.ticker_service.fundamentals_calls) == ["AAAA3", "BBBB3"]
+
+    reloaded = make_service({}, tmp_path).status()[3]
+    assert reloaded.candidatos[0].criterios == snapshot.candidatos[0].criterios
+
+
+def test_indicadores_salvos_nao_sao_consultados_de_novo(tmp_path):
+    service = make_service({"AAAA3": qualifying("AAAA3")}, tmp_path)
+    service.start(["AAAA3"], wait=True)
+    service.start(["AAAA3"], wait=True)
+    assert service.ticker_service.fundamentals_calls == ["AAAA3"]
+
+
+def test_endpoint_de_analise_detalhada(tmp_path, monkeypatch):
+    fake = FakeTickerService({"AAAA3": qualifying("AAAA3")}, {"AAAA3": replace(HEALTHY, divida_liquida=450.0)})
+    monkeypatch.setattr(routes, "ticker_service", fake)
+    monkeypatch.setattr(routes, "cash_yield_service", CashYieldService(fake, str(tmp_path / "c.json")))
+    fake.get_asset = lambda ticker: fake.assets[ticker]
+    data = TestClient(app).get("/api/v1/cash-yield/AAAA3/analise?taxa=0.06").json()
+    assert data["veredito"] == "reprovada"
+    assert data["preco_teto"]["preco_teto_media_5anos"] > 0
+    assert [c["nome"] for c in data["saude_financeira"]][0] == "Dívida líquida / EBITDA"
+    assert data["riscos"] and data["resumo"]

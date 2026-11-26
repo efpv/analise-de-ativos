@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f7fb">
   <title>Cash-yield | Seleção de ações para compra</title>
-  <link rel="stylesheet" href="/static/styles.css?v=10">
+  <link rel="stylesheet" href="/static/styles.css?v=11">
 </head>
 <body data-theme="dark">
   <main class="app-shell">
@@ -42,13 +42,15 @@
         <dl class="interpretation-list">
           <div><dt>Pré-qualificação</dt><dd>y1 = dividendos do último ano encerrado ÷ preço atual × 100, igual ou superior a 6.</dd></div>
           <div><dt>Qualificação</dt><dd>Os três últimos anos encerrados devem ter dividendos pagos, com y1 igual ou superior a 6 em todos, indicando regularidade e consistência.</dd></div>
-          <div><dt>Ordenação</dt><dd>Pelo menor y1 dos três anos (consistência) e, em empate, pelo y1 do último ano.</dd></div>
+          <div><dt>Saúde financeira</dt><dd>Ações com dívida líquida/EBITDA acima de 3, EBITDA negativo, caixa operacional negativo, prejuízo (ROE negativo) ou baixa liquidez na bolsa (menos de R$ 1 milhão por dia) são excluídas. Liquidez corrente e P/VP servem de contexto.</dd></div>
+          <div><dt>Ordenação</dt><dd>Primeiro as ações aprovadas, depois as com pontos de atenção; em cada grupo, pelo menor y1 dos três anos e, em empate, pelo y1 do último ano.</dd></div>
         </dl>
-        <p class="rate-label">Limitações: o y1 histórico usa o preço atual, pois a fonte não fornece o preço da época de cada pagamento. A análise não avalia endividamento, balanços, tarifas reguladas, notícias, empresas do mesmo grupo nem a conversão em dólar, etapas que exigem verificação manual.</p>
+        <p class="rate-label">Limitações: o y1 histórico usa o preço atual, pois a fonte não fornece o preço da época de cada pagamento. Os indicadores de balanço vêm do Yahoo Finance e podem estar defasados ou ausentes (aparecem como atenção). Tarifas reguladas, notícias, empresas do mesmo grupo e a conversão em dólar exigem verificação manual.</p>
       </article>
 
       <p id="cash-yield-status" class="rate-label" role="status" aria-live="polite"></p>
       <p id="cash-yield-message" class="message" role="alert" aria-live="polite"></p>
+      <article id="analysis-panel" class="panel" hidden aria-live="polite"></article>
       <div class="table-wrap">
         <table>
           <thead><tr>
@@ -59,13 +61,16 @@
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1">y1 (último ano)</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1_minimo">y1 mínimo (3 anos)</button></th>
             <th>y1 por ano</th>
+            <th aria-sort="none"><button class="sort-button" type="button" data-sort="veredito">Veredito</button></th>
+            <th>Dív. líq./EBITDA</th>
+            <th>Análise</th>
           </tr></thead>
-          <tbody id="cash-yield-body"><tr><td colspan="7" class="empty-state">A lista ainda não foi gerada. Acesse /gerarlista para iniciar a análise.</td></tr></tbody>
+          <tbody id="cash-yield-body"><tr><td colspan="10" class="empty-state">A lista ainda não foi gerada. Acesse /gerarlista para iniciar a análise.</td></tr></tbody>
         </table>
       </div>
     </section>
     <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. A seleção por cash-yield utiliza dividendos históricos, que não garantem resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
   </main>
-  <script src="/static/cash-yield.js?v=4" defer></script>
+  <script src="/static/cash-yield.js?v=5" defer></script>
 </body>
 </html>

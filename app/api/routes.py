@@ -9,7 +9,9 @@ from fastapi.templating import Jinja2Templates
 from app.core.config import settings
 from app.repositories.valuation_repository import ValuationRepository
 from app.models.valuation import DividendPeriod, Valuation
-from app.schemas.cash_yield import CashYieldItem, CashYieldResponse, YearYieldResponse
+from app.schemas.cash_yield import (
+    AnaliseResponse, CashYieldItem, CashYieldResponse, CriterioResponse, PrecoTetoResponse, YearYieldResponse,
+)
 from app.schemas.valuation import (
     ComparisonResponse,
     DividendHistory,
@@ -19,6 +21,7 @@ from app.schemas.valuation import (
     RankingResponse,
     ValuationResponse,
 )
+from app.services.bazin_analysis import analyze
 from app.services.cash_yield_service import CashYieldService
 from app.services.ticker_service import TickerService
 from app.services.sector_peer_service import SectorPeerService
@@ -178,7 +181,8 @@ def _cash_yield_response() -> CashYieldResponse:
                 YearYieldResponse(ano=year.ano, dividendos=round(year.dividendos, 8), y1=round(year.y1, 4))
                 for year in item.anos
             ],
-            fonte=item.fonte,
+            fonte=item.fonte, veredito=item.veredito, alertas=list(item.alertas),
+            criterios=[CriterioResponse(**vars(criterion)) for criterion in item.criterios],
         )
         for position, item in enumerate(snapshot.candidatos[:CASH_YIELD_LIMIT], start=1)
     ] if snapshot else []
@@ -188,6 +192,7 @@ def _cash_yield_response() -> CashYieldResponse:
         atualizado_em=snapshot.atualizado_em if snapshot else None,
         total_analisados=snapshot.total_analisados if snapshot else None,
         total_qualificados=snapshot.total_qualificados if snapshot else None,
+        total_reprovados_fundamentos=snapshot.total_reprovados_fundamentos if snapshot else None,
         itens=items,
         avisos=list(snapshot.avisos) if snapshot else [],
     )
@@ -196,6 +201,23 @@ def _cash_yield_response() -> CashYieldResponse:
 @router.get("/api/v1/cash-yield", response_model=CashYieldResponse)
 def get_cash_yield():
     return _cash_yield_response()
+
+
+@router.get("/api/v1/cash-yield/{ticker}/analise", response_model=AnaliseResponse)
+def get_cash_yield_analysis(ticker: str, taxa: float = Query(default=0.06, ge=0.001, le=1)):
+    try:
+        asset = cash_yield_service.with_fundamentals(ticker_service.get_asset(ticker))
+        ltm = None
+        try:
+            ltm = valuation_service.calculate(asset, taxa, "ltm")
+        except ValueError:
+            pass
+        average = valuation_service.calculate(asset, taxa, "5anos")
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return analyze(asset, taxa, ltm, average)
 
 
 @router.post("/api/v1/cash-yield/refresh", response_model=CashYieldResponse, status_code=202)

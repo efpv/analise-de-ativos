@@ -226,3 +226,10 @@ th[aria-sort="descending"] .sort-button::after { content: "▼"; font-size: 9px;
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+.badge-aprovado, .badge-aprovada { background: rgba(34, 160, 90, .2); color: #22a05a; }
+.badge-atencao { background: rgba(230, 160, 20, .2); color: #d99a14; }
+.badge-reprovado, .badge-reprovada { background: rgba(220, 60, 60, .2); color: #dc3c3c; }
+.analysis-section { margin-top: 1rem; }
+.analysis-section ul { padding-left: 1.2rem; }
