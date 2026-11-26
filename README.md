@@ -35,7 +35,7 @@ O ranking está temporariamente desativado por padrão para reduzir consultas à
 
 - `GET /api/v1/valuation/{ticker}?taxa=0.06&periodo=5anos` calcula um ativo.
 - `GET /api/v1/ranking?ordem=potencial` consulta o ranking quando habilitado; caso contrário, retorna HTTP 503 sem consultar as fontes. `ordem` aceita `potencial`, `dy` ou `classificacao`.
-- `GET /api/v1/cash-yield/{ticker}/analise?taxa=0.06` retorna a análise detalhada Bazin (veredito, preço-teto LTM e média de 5 anos, saúde financeira e riscos).
+- `GET /api/v1/cash-yield/{ticker}/analise?taxa=0.06` retorna a análise detalhada Bazin (veredito; preço-teto principal pela média do DPA dos 3 últimos anos fechados, comparação com o LTM e preço-teto conservador; saúde financeira adaptada ao setor — bancos e holdings não são avaliados por dívida/EBITDA — e riscos, incluindo ponto do ciclo, classes ON/PN e payout). Indicadores ausentes são informados como indisponíveis, nunca estimados.
 - `GET /api/v1/cash-yield` retorna o último resultado da seleção por cash-yield (`status`: `vazio`, `calculando` ou `pronto`); `POST /api/v1/cash-yield/refresh` inicia uma nova varredura e responde HTTP 202.
 - `GET /api/v1/comparison?tickers=ITSA4&tickers=BBAS3` compara de um a quatro ativos.
 

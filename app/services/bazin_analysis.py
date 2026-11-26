@@ -1,4 +1,8 @@
+import json
+import re
 from datetime import date
+from functools import lru_cache
+from pathlib import Path
 
 from app.models.cash_yield import Criterio
 from app.models.valuation import Fundamentals
@@ -20,13 +24,39 @@ def _number(value: float) -> str:
     return f"{value:.2f}".replace(".", ",")
 
 
-def assess_fundamentals(fund: Fundamentals | None) -> list[Criterio]:
+CYCLICAL_SECTORS = {"Basic Materials", "Energy", "Consumer Cyclical", "Industrials"}
+HOLDING_INDUSTRIES = {"Conglomerates", "Financial Conglomerates", "Asset Management"}
+
+
+def business_profile(fund: Fundamentals | None, company: str = "") -> str:
+    """Classifica o modelo de negócio a partir do setor/indústria informados pela fonte: banco, holding, ciclica ou padrao."""
+    if fund is None:
+        return "padrao"
+    industry = fund.industria or ""
+    if industry.startswith(("Banks", "Credit Services", "Insurance")):
+        return "banco"
+    if industry in HOLDING_INDUSTRIES or "HOLDING" in company.upper():
+        return "holding"
+    if fund.setor in CYCLICAL_SECTORS:
+        return "ciclica"
+    return "padrao"
+
+
+def assess_fundamentals(fund: Fundamentals | None, company: str = "") -> list[Criterio]:
     """Critérios de saúde financeira. Só endividamento, liquidez na bolsa, caixa e prejuízo podem reprovar."""
     fund = fund or Fundamentals()
     criteria: list[Criterio] = []
+    profile = business_profile(fund, company)
 
     ratio = None
-    if fund.divida_liquida is None or fund.ebitda is None:
+    if profile in ("banco", "holding"):
+        criteria.append(Criterio(
+            "Dívida líquida / EBITDA", APROVADO, "n/a",
+            "Não aplicável a bancos e seguradoras: a dívida é parte da operação. Avalie ROE, inadimplência, margem financeira, eficiência e payout (não disponíveis nesta fonte)."
+            if profile == "banco" else
+            "Não aplicável a holdings: o EBITDA reflete apenas o caixa da própria holding. Avalie desconto de holding, caixa/dívida da holding e dependência do ativo principal (não disponíveis nesta fonte).",
+        ))
+    elif fund.divida_liquida is None or fund.ebitda is None:
         criteria.append(Criterio("Dívida líquida / EBITDA", ATENCAO, None, UNAVAILABLE))
     elif fund.divida_liquida <= 0:
         criteria.append(Criterio("Dívida líquida / EBITDA", APROVADO, "Caixa líquido", "A empresa tem mais caixa que dívida."))
@@ -55,7 +85,9 @@ def assess_fundamentals(fund: Fundamentals | None) -> list[Criterio]:
         }[status]
         criteria.append(Criterio("Liquidez na bolsa", status, f"{_money(fund.volume_financeiro)}/dia", text))
 
-    if fund.fluxo_caixa_operacional is None:
+    if profile == "banco":
+        criteria.append(Criterio("Geração de caixa", APROVADO, "n/a", "O fluxo de caixa operacional de instituições financeiras não é comparável ao de empresas comuns."))
+    elif fund.fluxo_caixa_operacional is None:
         criteria.append(Criterio("Geração de caixa", ATENCAO, None, UNAVAILABLE))
     elif fund.fluxo_caixa_operacional <= 0:
         criteria.append(Criterio("Geração de caixa", REPROVADO, _money(fund.fluxo_caixa_operacional), "O caixa operacional não é positivo."))
@@ -116,60 +148,124 @@ def dividend_alerts(history: dict[int, float], today: date, years: int = 3) -> l
     return alerts
 
 
+CATALOG_PATH = Path(__file__).resolve().parents[2] / "data" / "ativos_b3.json"
+CLASS_LABELS = {"3": "ON", "4": "PN", "5": "PNA", "6": "PNB", "11": "UNIT"}
+PROFILE_LABELS = {"banco": "banco/seguradora", "holding": "holding", "ciclica": "setor cíclico", "padrao": "empresa comum"}
+
+
+@lru_cache(maxsize=1)
+def _catalog_tickers() -> frozenset[str]:
+    try:
+        return frozenset(item["ticker"] for item in json.loads(CATALOG_PATH.read_text(encoding="utf-8")))
+    except (OSError, ValueError, KeyError, TypeError):
+        return frozenset()
+
+
+def sibling_classes(ticker: str) -> list[str]:
+    """Outras classes da mesma empresa listadas na B3 (ON/PN/UNIT), pelo prefixo de 4 letras do ticker."""
+    match = re.fullmatch(r"([A-Z]{4})(\d{1,2})", ticker.upper())
+    if not match:
+        return []
+    base, own = match.groups()
+    return sorted(
+        f"{base}{suffix} ({label})" for suffix, label in CLASS_LABELS.items()
+        if suffix != own and f"{base}{suffix}" in _catalog_tickers()
+    )
+
+
+def assess_payout(fund: Fundamentals | None) -> Criterio:
+    payout = fund.payout if fund else None
+    if payout is None:
+        return Criterio("Payout", ATENCAO, None, UNAVAILABLE)
+    if payout > 100:
+        return Criterio("Payout", ATENCAO, f"{_number(payout)}%", "Distribui mais que o lucro: o nível de proventos pode ser insustentável.")
+    return Criterio("Payout", APROVADO, f"{_number(payout)}%", "Distribuição dentro do lucro (indicador de contexto; não inclui recompras).")
+
+
 def analyze(asset, taxa: float, ltm, average):
-    """Monta a análise detalhada no formato: veredito, preço-teto, saúde financeira e riscos."""
-    from app.schemas.cash_yield import AnaliseResponse, CriterioResponse, PrecoTetoResponse
+    """Monta a análise detalhada: veredito, preço-teto (3 anos fechados e LTM), saúde financeira e riscos.
+
+    `average` deve ser o cálculo da média dos 3 últimos anos fechados.
+    """
+    from app.schemas.cash_yield import AnaliseResponse, CriterioResponse, DpaAnoResponse, PrecoTetoResponse
 
     today = date.today()
     price = asset.preco_atual
     dpa_ltm = ltm.dividendos_ltm if ltm is not None else None
+    dpa_3 = average.dividendos_medios
     teto_ltm = dpa_ltm / taxa if dpa_ltm is not None else None
-    teto_media = average.dividendos_medios / taxa
-    reference = dpa_ltm if dpa_ltm is not None else average.dividendos_medios
-    conservative = min(value for value in (teto_ltm, teto_media) if value is not None)
+    teto_3 = dpa_3 / taxa
+    conservative_dpa = min(value for value in (dpa_ltm, dpa_3) if value is not None)
+    conservative = conservative_dpa / taxa
+    years = [DpaAnoResponse(ano=year, dpa=_round(value)) for year, value in sorted(average.dividendos_historicos.items())]
+    profile = business_profile(asset.fundamentos, asset.empresa)
+    sibling = sibling_classes(asset.ticker)
 
     notes = [
-        "Preço-Teto = DPA ÷ rendimento mínimo. O LTM soma pagamentos pela data de pagamento, evitando contar o mesmo provento na declaração e no pagamento.",
-        "As fontes não separam JCP de dividendos: os valores são brutos e o JCP pode ter tributação diferente.",
-        "O cenário conservador usa o menor entre o preço-teto do LTM e o da média dos últimos 5 anos.",
+        f"Preço-teto principal = DPA médio dos 3 últimos anos fechados ({years[0].ano}–{years[-1].ano}) ÷ rendimento mínimo. O LTM e o cenário conservador servem de comparação.",
+        "O LTM soma os pagamentos pela data de pagamento, evitando contar o mesmo provento na declaração e no pagamento.",
+        "As fontes não separam JCP de dividendos nem identificam proventos extraordinários: os valores são brutos e a tributação do JCP pode diferir.",
+        "O cenário conservador usa o menor DPA entre a média de 3 anos e o LTM.",
     ]
     if ltm is None:
-        notes.append("O LTM não está disponível nesta fonte (sem datas de pagamento); o veredito usa a média dos últimos 5 anos.")
+        notes.append("O LTM não está disponível nesta fonte (sem datas de pagamento); o cenário conservador usa apenas a média de 3 anos.")
     notes.extend(average.avisos)
 
-    dy = reference / price * 100
+    dy = conservative_dpa / price * 100
+    floor_ok = dy >= taxa * 100
     principals = [Criterio(
-        "Piso de Dividend Yield", APROVADO if dy >= taxa * 100 else REPROVADO, f"{_number(dy)}%",
-        f"Dividend Yield {'igual ou acima' if dy >= taxa * 100 else 'abaixo'} do mínimo de {_number(taxa * 100)}% "
-        f"({'LTM' if ltm is not None else 'média de 5 anos'}).",
+        "Piso de Dividend Yield", APROVADO if floor_ok else REPROVADO, f"{_number(dy)}%",
+        f"Dividend Yield conservador (menor entre média de 3 anos e LTM) {'igual ou acima' if floor_ok else 'abaixo'} do mínimo de {_number(taxa * 100)}%.",
     )]
-    health = assess_fundamentals(asset.fundamentos)
+    health = assess_fundamentals(asset.fundamentos, asset.empresa)
     result = verdict(principals + health[:4])
+    all_health = health + [assess_payout(asset.fundamentos)]
 
     risks = dividend_alerts(asset.dividendos_historicos, today)
-    if dpa_ltm is not None and average.dividendos_medios > 0 and dpa_ltm < average.dividendos_medios * 0.7:
-        risks.append("O DPA dos últimos 12 meses está mais de 30% abaixo da média de 5 anos: possível queda estrutural dos proventos (value trap).")
-    if price > teto_media:
-        risks.append("O preço atual está acima do preço-teto da média histórica.")
-    risks.extend(f"{item.nome}: {item.texto}" for item in health if item.status != APROVADO and item.texto != UNAVAILABLE)
-    risks.append("Notícias, fatos relevantes e o contexto setorial (por exemplo tarifas reguladas) não são verificados automaticamente.")
+    if dpa_ltm is not None and dpa_3 > 0:
+        if dpa_ltm < dpa_3 * 0.7:
+            risks.append("O DPA dos últimos 12 meses está mais de 30% abaixo da média de 3 anos: possível queda estrutural dos proventos, retenção de caixa/CAPEX ou redução de payout (value trap).")
+        elif dpa_ltm > dpa_3 * 1.3:
+            risks.append("O DPA dos últimos 12 meses está mais de 30% acima da média de 3 anos: pode incluir proventos extraordinários; a média de 3 anos é a referência mais prudente.")
+    closed = {year: asset.dividendos_historicos.get(year, 0.0) for year in range(today.year - 5, today.year)}
+    older = [closed[year] for year in range(today.year - 5, today.year - 3)]
+    if older and sum(older) > 0 and dpa_3 > (sum(older) / len(older)) * 1.3:
+        risks.append("A média dos 3 últimos anos está mais de 30% acima dos 2 anos anteriores: a janela pode estar em um pico de ciclo ou de payout.")
+    if profile == "ciclica":
+        risks.append("Setor cíclico (commodities, varejo, indústria): confirme em que ponto do ciclo a janela de 3 anos se encontra e evite extrapolar picos.")
+    if profile == "banco":
+        risks.append("Banco/seguradora: avalie também inadimplência, margem financeira, eficiência e histórico de payout (indisponíveis nesta fonte).")
+    if profile == "holding":
+        risks.append("Holding: avalie o desconto de holding, o caixa e a dívida da própria holding, pautas jurídicas/societárias e a dependência do ativo principal (indisponíveis nesta fonte).")
+    if price > teto_3:
+        risks.append("O preço atual está acima do preço-teto da média de 3 anos.")
+    if sibling:
+        risks.append(f"A empresa também negocia como {', '.join(sibling)}: compare liquidez e proventos entre as classes (ON vs. PN); esses dados não foram consultados.")
+    risks.extend(f"{item.nome}: {item.texto}" for item in all_health if item.status != APROVADO and item.texto != UNAVAILABLE)
+    risks.append("Notícias, fatos relevantes, processos e crises operacionais não são verificados automaticamente.")
 
     label = {"aprovada": "aprovada", "atencao": "com pontos de atenção", "reprovada": "reprovada"}[result]
-    unavailable = sum(item.texto == UNAVAILABLE for item in health)
-    summary = f"{asset.ticker} está {label} nos critérios principais de Bazin. Preço atual {_money_cents(price)}; preço-teto conservador {_money_cents(conservative)}."
+    unavailable = sum(item.texto == UNAVAILABLE for item in all_health)
+    summary = (
+        f"{asset.ticker} ({PROFILE_LABELS[profile]}{'' if asset.fundamentos and (asset.fundamentos.setor or asset.fundamentos.industria) else ', classificação indisponível'}) "
+        f"está {label} nos critérios principais de Bazin. Preço atual {_money_cents(price)}; "
+        f"preço-teto principal (3 anos) {_money_cents(teto_3)}; conservador {_money_cents(conservative)}."
+    )
     if unavailable:
         summary += f" {unavailable} indicador(es) indisponível(is) na fonte."
     return AnaliseResponse(
         ticker=asset.ticker, empresa=asset.empresa, veredito=result, resumo=summary, preco_atual=round(price, 8),
+        perfil=PROFILE_LABELS[profile],
         preco_teto=PrecoTetoResponse(
-            taxa=taxa, dpa_ltm=_round(dpa_ltm), preco_teto_ltm=_round(teto_ltm),
+            taxa=taxa, dpa_anos=years, dpa_media_3anos=_round(dpa_3), preco_teto_3anos=_round(teto_3),
+            margem_3anos=_round((teto_3 / price - 1) * 100),
+            dpa_ltm=_round(dpa_ltm), preco_teto_ltm=_round(teto_ltm),
             margem_ltm=_round((teto_ltm / price - 1) * 100) if teto_ltm is not None else None,
-            dpa_media_5anos=_round(average.dividendos_medios), preco_teto_media_5anos=_round(teto_media),
-            margem_media_5anos=_round((teto_media / price - 1) * 100), cenario_conservador=_round(conservative),
+            preco_teto_conservador=_round(conservative), margem_conservador=_round((conservative / price - 1) * 100),
             observacoes=list(dict.fromkeys(notes)),
         ),
         criterios_principais=[CriterioResponse(**vars(item)) for item in principals + health[:4]],
-        saude_financeira=[CriterioResponse(**vars(item)) for item in health],
+        saude_financeira=[CriterioResponse(**vars(item)) for item in all_health],
         riscos=list(dict.fromkeys(risks)),
     )
 

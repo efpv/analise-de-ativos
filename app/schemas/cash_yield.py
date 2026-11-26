@@ -43,15 +43,22 @@ class CashYieldResponse(BaseModel):
     avisos: list[str]
 
 
+class DpaAnoResponse(BaseModel):
+    ano: int
+    dpa: float
+
+
 class PrecoTetoResponse(BaseModel):
     taxa: float
+    dpa_anos: list[DpaAnoResponse]
+    dpa_media_3anos: float
+    preco_teto_3anos: float
+    margem_3anos: float
     dpa_ltm: float | None
     preco_teto_ltm: float | None
     margem_ltm: float | None
-    dpa_media_5anos: float
-    preco_teto_media_5anos: float
-    margem_media_5anos: float
-    cenario_conservador: float
+    preco_teto_conservador: float
+    margem_conservador: float
     observacoes: list[str]
 
 
@@ -61,6 +68,7 @@ class AnaliseResponse(BaseModel):
     veredito: Literal["aprovada", "atencao", "reprovada"]
     resumo: str
     preco_atual: float
+    perfil: str
     preco_teto: PrecoTetoResponse
     criterios_principais: list[CriterioResponse]
     saude_financeira: list[CriterioResponse]

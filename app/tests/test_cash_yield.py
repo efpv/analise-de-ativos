@@ -10,6 +10,7 @@ from app.main import app
 from app.models.valuation import AssetData, Fundamentals
 from app.repositories.asset_cache_repository import AssetCacheRepository
 from app.repositories.firestore_store import FirestoreAssetCache, FirestoreStateStore
+from app.services.bazin_analysis import business_profile, sibling_classes
 from app.services.cash_yield_service import CashYieldService, evaluate, rank
 
 TODAY = date(2026, 6, 1)
@@ -59,6 +60,7 @@ def test_ordena_por_consistencia_e_depois_y1():
 HEALTHY = Fundamentals(
     divida_liquida=100.0, ebitda=100.0, liquidez_corrente=1.5, p_vp=1.2, roe=15.0,
     volume_financeiro=20_000_000.0, fluxo_caixa_operacional=80.0, fluxo_caixa_livre=10.0,
+    setor="Utilities", industria="Utilities - Regulated Electric",
 )
 
 
@@ -357,6 +359,41 @@ def test_endpoint_de_analise_detalhada(tmp_path, monkeypatch):
     fake.get_asset = lambda ticker: fake.assets[ticker]
     data = TestClient(app).get("/api/v1/cash-yield/AAAA3/analise?taxa=0.06").json()
     assert data["veredito"] == "reprovada"
-    assert data["preco_teto"]["preco_teto_media_5anos"] > 0
+    assert data["preco_teto"]["preco_teto_3anos"] > 0
     assert [c["nome"] for c in data["saude_financeira"]][0] == "Dívida líquida / EBITDA"
     assert data["riscos"] and data["resumo"]
+
+
+def test_banco_e_holding_nao_sao_reprovados_por_divida_ebitda():
+    bank = replace(HEALTHY, industria="Banks - Regional", setor="Financial Services", divida_liquida=900.0, fluxo_caixa_operacional=-5.0)
+    candidate = evaluate(replace(qualifying("BBBB4"), fundamentos=bank))
+    assert status_of(candidate, "Dívida líquida / EBITDA") == "aprovado"
+    assert status_of(candidate, "Geração de caixa") == "aprovado"
+    holding = replace(HEALTHY, industria="Financial Conglomerates", divida_liquida=900.0)
+    assert status_of(evaluate(replace(qualifying("HHHH4"), fundamentos=holding)), "Dívida líquida / EBITDA") == "aprovado"
+    assert business_profile(replace(HEALTHY, setor="Basic Materials", industria="Steel")) == "ciclica"
+
+
+def test_classes_irmas_vem_do_catalogo():
+    assert sibling_classes("PETR4") == ["PETR3 (ON)"]
+    assert sibling_classes("XXXX3") == []
+
+
+def test_analise_usa_3_anos_fechados_e_alerta_ciclo_e_classes(tmp_path, monkeypatch):
+    year = date.today().year
+    cyclic = replace(HEALTHY, setor="Basic Materials", industria="Steel")
+    item = asset("PETR4", 5.0, {year - 5: 0.1, year - 4: 0.1, year - 3: 0.8, year - 2: 0.8, year - 1: 0.8})
+    fake = FakeTickerService({"PETR4": item}, {"PETR4": cyclic})
+    fake.get_asset = lambda ticker: fake.assets[ticker]
+    monkeypatch.setattr(routes, "ticker_service", fake)
+    monkeypatch.setattr(routes, "cash_yield_service", CashYieldService(fake, str(tmp_path / "c.json")))
+    data = TestClient(app).get("/api/v1/cash-yield/PETR4/analise?taxa=0.06").json()
+    teto = data["preco_teto"]
+    assert [entry["ano"] for entry in teto["dpa_anos"]] == [year - 3, year - 2, year - 1]
+    assert teto["dpa_media_3anos"] == 0.8
+    assert teto["preco_teto_3anos"] == round(0.8 / 0.06, 4)
+    assert teto["preco_teto_conservador"] <= teto["preco_teto_3anos"]
+    assert data["perfil"] == "setor cíclico"
+    risks = " ".join(data["riscos"])
+    assert "ciclo" in risks and "PETR3 (ON)" in risks
+    assert any(c["nome"] == "Payout" for c in data["saude_financeira"])

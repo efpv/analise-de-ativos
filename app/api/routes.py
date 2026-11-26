@@ -212,7 +212,7 @@ def get_cash_yield_analysis(ticker: str, taxa: float = Query(default=0.06, ge=0.
             ltm = valuation_service.calculate(asset, taxa, "ltm")
         except ValueError:
             pass
-        average = valuation_service.calculate(asset, taxa, "5anos")
+        average = valuation_service.calculate(asset, taxa, "3anos")
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

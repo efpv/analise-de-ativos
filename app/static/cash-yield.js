@@ -110,16 +110,17 @@ function money(value) {
 function renderAnalysis(data) {
   const price = data.preco_teto;
   const title = document.createElement("h3");
-  title.append(`${data.ticker} — ${data.empresa} `, badge(data.veredito));
+  title.append(`${data.ticker} — ${data.empresa} (${data.perfil}) `, badge(data.veredito));
   const margin = (value) => (value === null ? "" : ` (margem ${decimal.format(value)}%)`);
   panel.replaceChildren(
     title,
     section("Resumo executivo / Veredito Bazin", [paragraph(data.resumo), list(data.criterios_principais)]),
     section("Preço-teto e dividendos", [
       list([
-        `DPA dos últimos 12 meses: ${money(price.dpa_ltm)} → preço-teto ${money(price.preco_teto_ltm)}${margin(price.margem_ltm)}`,
-        `DPA médio de 5 anos: ${money(price.dpa_media_5anos)} → preço-teto ${money(price.preco_teto_media_5anos)}${margin(price.margem_media_5anos)}`,
-        `Cenário conservador: ${money(price.cenario_conservador)} · cotação atual ${money(data.preco_atual)} · rendimento mínimo ${decimal.format(price.taxa * 100)}%`,
+        `DPA dos 3 últimos anos fechados: ${price.dpa_anos.map((year) => `${year.ano}: ${money(year.dpa)}`).join(" · ")} → média ${money(price.dpa_media_3anos)}`,
+        `Preço-teto principal (média de 3 anos ÷ ${decimal.format(price.taxa * 100)}%): ${money(price.preco_teto_3anos)}${margin(price.margem_3anos)}`,
+        `Últimos 12 meses (LTM): DPA ${money(price.dpa_ltm)} → preço-teto ${money(price.preco_teto_ltm)}${margin(price.margem_ltm)}`,
+        `Preço-teto conservador: ${money(price.preco_teto_conservador)}${margin(price.margem_conservador)} · cotação atual ${money(data.preco_atual)}`,
       ]),
       list(price.observacoes),
     ]),

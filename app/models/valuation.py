@@ -22,6 +22,9 @@ class Fundamentals:
     volume_financeiro: float | None = None
     fluxo_caixa_operacional: float | None = None
     fluxo_caixa_livre: float | None = None
+    payout: float | None = None
+    setor: str | None = None
+    industria: str | None = None
 
 
 @dataclass(frozen=True)

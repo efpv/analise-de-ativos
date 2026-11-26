@@ -121,6 +121,9 @@ class ApiClient:
             volume_financeiro=volume * price if volume is not None and price is not None else None,
             fluxo_caixa_operacional=number("operatingCashflow"),
             fluxo_caixa_livre=number("freeCashflow"),
+            payout=payout * 100 if (payout := number("payoutRatio")) is not None else None,
+            setor=str(info["sector"]) if info.get("sector") else None,
+            industria=str(info["industry"]) if info.get("industry") else None,
         )
 
     def get_price(self, ticker: str) -> float | None:

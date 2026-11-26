@@ -42,7 +42,7 @@ def evaluate(asset: AssetData, today: date | None = None) -> CashYieldCandidate 
         if dividends <= 0 or y1 < MIN_Y1:
             return None
         years.append(YearYield(ano=year, dividendos=dividends, y1=y1))
-    criteria = assess_fundamentals(asset.fundamentos)
+    criteria = assess_fundamentals(asset.fundamentos, asset.empresa)
     return CashYieldCandidate(
         ticker=asset.ticker,
         empresa=asset.empresa,
@@ -124,7 +124,7 @@ class CashYieldService:
 
     def with_fundamentals(self, asset: AssetData) -> AssetData:
         """Busca os indicadores de balanço apenas para ativos que já passaram no y1."""
-        if asset.fundamentos is not None:
+        if asset.fundamentos is not None and (asset.fundamentos.setor or asset.fundamentos.industria):
             return asset
         fundamentals = self.ticker_service.get_fundamentals(asset.ticker)
         if fundamentals is None:
