@@ -9,8 +9,8 @@ const POLL_INTERVAL_MS = 3000;
 let pollTimer = null;
 let currentItems = [];
 let emptyText = "";
-let sortKey = "posicao";
-let sortDirection = "asc";
+let sortKey = "y1_minimo";
+let sortDirection = "desc";
 const modal = document.getElementById("analysis-modal");
 const modalContent = document.getElementById("analysis-modal-content");
 const modalTitle = document.getElementById("analysis-modal-title");
@@ -173,7 +173,7 @@ function drawRows() {
   if (!items.length) {
     const row = document.createElement("tr");
     const empty = cell(emptyText, "empty-state");
-    empty.colSpan = 9;
+    empty.colSpan = 8;
     row.appendChild(empty);
     body.appendChild(row);
     return;
@@ -181,7 +181,6 @@ function drawRows() {
   items.forEach((item) => {
     const row = document.createElement("tr");
     row.append(
-      cell(item.posicao),
       tickerCell(item.ticker),
       cell(item.empresa),
       cell(currency.format(item.preco_atual)),
