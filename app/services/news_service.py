@@ -26,6 +26,10 @@ MAX_ITENS = 6
 MAX_POR_FEED = 20
 SUMMARY_LIMIT = 240
 HTML_TAG = re.compile(r"<[^>]+>")
+LEGAL_SUFFIXES = re.compile(
+    r"\b(S\.?/?A\.?|S/?A|LTDA\.?|HOLDING|PARTICIPACOES|PARTICIPAÇÕES|COMPANHIA|CIA\.?)\b",
+    re.IGNORECASE,
+)
 USER_AGENT = "PrecoJustoBazin/1.0 (consulta de noticias por RSS)"
 
 
@@ -39,6 +43,20 @@ def _clean(value: str | None) -> str:
 
 def _normalize(value: str) -> str:
     return unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii").casefold()
+
+
+def company_keywords(empresa: str) -> tuple[str, ...]:
+    """Extrai palavras úteis do nome da empresa para busca e matching."""
+    clean = LEGAL_SUFFIXES.sub(" ", _clean(empresa))
+    clean = re.sub(r"[^A-Za-z0-9À-ÿ\s-]", " ", clean)
+    tokens = []
+    for raw in clean.split():
+        token = _normalize(raw).strip("-")
+        if len(token) < 3 or token in {"grupo", "do", "da", "de", "dos", "das"}:
+            continue
+        if token not in tokens:
+            tokens.append(token)
+    return tuple(tokens[:3])
 
 
 @lru_cache(maxsize=4)
@@ -79,10 +97,17 @@ def _ticker_search_url(ticker: str, empresa: str, feeds: tuple[tuple[str, str], 
     )
     if not template:
         return None
-    query = f'"{ticker}"'
+    keywords = company_keywords(empresa)
+    terms = [f'"{ticker}"']
     if empresa:
-        query += f' OR "{empresa}"'
-    query += " B3"
+        terms.append(f'"{empresa}"')
+    terms.extend(f'"{keyword}"' for keyword in keywords)
+    query = f'({" OR ".join(dict.fromkeys(terms))})'
+    if keywords:
+        keyword_terms = " OR ".join(f'"{keyword}"' for keyword in keywords)
+        query += f" ({keyword_terms} OR B3 OR ações OR acao OR bolsa)"
+    else:
+        query += " (B3 OR ações OR acao OR bolsa)"
     parsed = urlparse(template)
     params = [(key, query if key == "q" else value) for key, value in parse_qsl(parsed.query, keep_blank_values=True)]
     return urlunparse(parsed._replace(query=urlencode(params)))
@@ -148,7 +173,10 @@ def _matches(text: str, ticker: str, empresa: str) -> bool:
     if re.search(rf"(?<![a-z0-9]){re.escape(ticker.casefold())}(?![a-z0-9])", haystack):
         return True
     company = _normalize(empresa)
-    return bool(company) and company in haystack
+    if company and company in haystack:
+        return True
+    keywords = company_keywords(empresa)
+    return any(re.search(rf"(?<![a-z0-9]){re.escape(keyword)}(?![a-z0-9])", haystack) for keyword in keywords)
 
 
 class NewsService:
