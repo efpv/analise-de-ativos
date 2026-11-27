@@ -244,6 +244,15 @@ th[aria-sort="descending"] .sort-button::after { content: "▼"; font-size: 9px;
 .analysis-section a { color: var(--blue); text-decoration: none; }
 .analysis-section a:hover { text-decoration: underline; }
 .analysis-section li span { color: var(--muted); }
+.news-filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.news-filter { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); color: var(--text); cursor: pointer; }
+.news-filter input { margin: 0; }
+.news-list { display: grid; gap: 14px; }
+.news-card h3 { margin: 6px 0; font-size: 1.05rem; }
+.news-card a { color: var(--text); text-decoration: none; }
+.news-card a:hover { color: var(--blue); text-decoration: underline; }
+.news-meta { margin: 0; color: var(--muted); font-size: .88rem; }
+.news-summary { margin: 0; color: var(--muted); }
 
 .info-section { margin-top: 38px; }
 .jump-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }

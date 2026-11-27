@@ -37,6 +37,15 @@ MARKET_CONTEXT = {
     "ticker", "acionista", "papel", "papeis",
 }
 RELEVANT_CATEGORIES = {"mercado financeiro", "economia"}
+HOME_CATEGORIES = (
+    "Política",
+    "Economia",
+    "Mercado Financeiro",
+    "Internacional (Economia, Mercados e Geral)",
+    "Criptomoedas",
+    "Tecnologia e IA",
+)
+HOME_CATEGORY_ALIASES = {category.casefold(): category for category in HOME_CATEGORIES}
 USER_AGENT = "PrecoJustoBazin/1.0 (consulta de noticias por RSS)"
 
 
@@ -120,18 +129,12 @@ def _ticker_search_url(ticker: str, empresa: str, feeds: tuple[tuple[str, str], 
     return urlunparse(parsed._replace(query=urlencode(params)))
 
 
-def _ordered_feeds(ticker: str, empresa: str, feeds: tuple[tuple[str, str], ...]) -> list[tuple[str, str]]:
-    targeted = _ticker_search_url(ticker, empresa, feeds)
-    prioritized = [
-        (category, url)
-        for category in ("Mercado Financeiro", "Economia")
-        for feed_category, url in feeds
-        if feed_category.casefold() == category.casefold()
-        and not (targeted and urlparse(url).netloc.casefold().endswith("news.google.com"))
-    ]
-    ordered = [(f"Notícias de {ticker}", targeted)] if targeted else []
-    ordered.extend(prioritized)
-    return ordered
+def _category_feeds(categories: list[str] | None = None, feeds: tuple[tuple[str, str], ...] | None = None) -> list[tuple[str, str]]:
+    feeds = feeds if feeds is not None else load_feeds()
+    if not categories:
+        return list(feeds)
+    wanted = {category.casefold() for category in categories}
+    return [(category, url) for category, url in feeds if category.casefold() in wanted]
 
 
 def _parse_date(value: str | None) -> datetime | None:
@@ -215,7 +218,7 @@ class NewsService:
         return response.content
 
     def _parse_entries(
-        self, payload: bytes, category: str, url: str, ticker: str, empresa: str
+        self, payload: bytes, category: str, url: str, matcher=None
     ) -> list[NoticiaResponse]:
         root = ElementTree.fromstring(payload)
         source_feed = _clean(category) or urlparse(url).netloc
@@ -230,18 +233,17 @@ class NewsService:
             summary = _clean(_child_text(entry, "description", "summary", "content"))[:SUMMARY_LIMIT]
             source = _clean(_child_text(entry, "source")) or source_feed
             published = _parse_date(_child_text(entry, "pubdate", "published", "updated", "date"))
-            if not _matches(f"{title} {summary}", ticker, empresa, category):
+            if matcher and not matcher(f"{title} {summary}", category):
                 continue
             found.append(NoticiaResponse(
                 titulo=title, resumo=summary or None, link=link,
-                fonte=source, publicado_em=published,
+                fonte=source, publicado_em=published, categoria=category,
             ))
             if len(found) >= MAX_POR_FEED:
                 break
         return found
 
-    def _collect(self, ticker: str, empresa: str) -> NoticiasResponse:
-        feeds = _ordered_feeds(ticker, empresa, load_feeds(self.feeds_path))
+    def _collect(self, feeds: list[tuple[str, str]], matcher=None, empty_message: str = "Nenhuma notícia encontrada.") -> NoticiasResponse:
         if not feeds:
             return NoticiasResponse(itens=[], avisos=["Nenhuma lista de feeds RSS foi encontrada."])
         items: list[NoticiaResponse] = []
@@ -249,7 +251,7 @@ class NewsService:
         failures = 0
         with httpx.Client(timeout=self.timeout, follow_redirects=True) as client:
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                futures: dict[Future[bytes], str] = {
+                futures: dict[Future[bytes], tuple[str, str]] = {
                     executor.submit(self._fetch_feed, client, url): (category, url)
                     for category, url in feeds
                 }
@@ -258,7 +260,7 @@ class NewsService:
                         category, url = futures[future]
                         try:
                             payload = future.result()
-                            parsed = self._parse_entries(payload, category, url, ticker, empresa)
+                            parsed = self._parse_entries(payload, category, url, matcher)
                         except Exception as exc:
                             failures += 1
                             logger.warning(
@@ -277,8 +279,8 @@ class NewsService:
                     pending = [url for future, (_, url) in futures.items() if not future.done()]
                     failures += len(pending)
                     logger.warning(
-                        "Tempo limite na busca de notícias: ticker=%s fontes_pendentes=%s",
-                        ticker, len(pending), extra={"ticker": ticker, "provider": "rss"},
+                        "Tempo limite na busca de notícias: fontes_pendentes=%s",
+                        len(pending), extra={"provider": "rss"},
                     )
                     for future in futures:
                         future.cancel()
@@ -287,17 +289,21 @@ class NewsService:
         if failures:
             warnings.append(f"{failures} fonte(s) RSS não responderam; resultado parcial.")
         if not items:
-            warnings.append("Nenhuma notícia recente sobre o ticker foi encontrada nas fontes consultadas.")
+            warnings.append(empty_message)
         return NoticiasResponse(itens=items[:MAX_ITENS], avisos=warnings)
 
-    def get_news(self, ticker: str, empresa: str | None = None) -> NoticiasResponse:
-        ticker = ticker.strip().upper()
-        empresa = _clean(empresa or "")[:120]
-        key = (ticker, _normalize(empresa))
+    def get_by_categories(self, categories: list[str] | None = None) -> NoticiasResponse:
+        selected = []
+        for category in categories or []:
+            resolved = HOME_CATEGORY_ALIASES.get(category.casefold())
+            if resolved and resolved not in selected:
+                selected.append(resolved)
+        feeds = _category_feeds(selected or list(HOME_CATEGORIES), load_feeds(self.feeds_path))
+        key = ("home", "|".join(selected) or "all")
         cached = self._cache.get(key)
         if cached and datetime.now(timezone.utc) - cached[0] < CACHE_TTL:
             return cached[1]
-        result = self._collect(ticker, empresa)
+        result = self._collect(feeds, empty_message="Nenhuma notícia encontrada para as categorias selecionadas.")
         with self._lock:
             self._cache[key] = (datetime.now(timezone.utc), result)
         return result

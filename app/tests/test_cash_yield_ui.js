@@ -87,9 +87,9 @@ test("linha da tabela mostra preço atual e preço teto em colunas separadas", a
   assert.match(cells[4].textContent, /9,00%/);
 });
 
-test("endpoint de notícias é chamado com ticker e empresa no modal", async () => {
-  assert.match(script, /\/noticias/);
-  assert.match(script, /Notícias sobre o ativo/);
+test("modal de análise não carrega notícias por ticker", async () => {
+  assert.doesNotMatch(script, /\/noticias/);
+  assert.doesNotMatch(script, /Notícias sobre o ativo/);
 });
 
 test("estado vazio ocupa as nove colunas da tabela", async () => {

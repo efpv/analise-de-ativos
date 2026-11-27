@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f7fb">
+  <title>Notícias | Preço Justo Bazin</title>
+  <link rel="stylesheet" href="/static/styles.css?v=15">
+</head>
+<body data-theme="dark">
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Preço Justo Bazin - início">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>
+          <span class="eyebrow">Análise de dividendos</span>
+          <strong class="brand-title">Preço Justo Bazin</strong>
+        </span>
+      </a>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <a href="/" aria-current="page">Notícias</a>
+        <a href="/calculadora">Calculadora</a>
+        <a href="/cash-yield">Cash-yield</a>
+        <a href="/como-funciona">Como funciona</a>
+        <a href="/ranking"{% if not ranking_enabled %} hidden{% endif %}>Ranking Bazin</a>
+      </nav>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar tema claro" title="Alternar tema">
+        <span aria-hidden="true">◐</span><span class="theme-label">Tema</span>
+      </button>
+    </header>
+
+    <section class="page-section">
+      <div class="section-heading">
+        <p class="eyebrow">Radar de notícias</p>
+        <h1>Notícias do mercado e do cenário econômico</h1>
+        <p class="section-subtitle">Filtre por categoria e acompanhe as principais manchetes das fontes RSS configuradas.</p>
+      </div>
+
+      <article class="panel interpretation">
+        <h3>Categorias</h3>
+        <div id="news-categories" class="news-filters" aria-label="Filtrar categorias de notícias">
+          {% for category in news_categories %}
+          <label class="news-filter"><input type="checkbox" name="categoria" value="{{ category }}" checked><span>{{ category }}</span></label>
+          {% endfor %}
+        </div>
+        <div class="section-actions">
+          <button id="news-refresh" class="secondary-button" type="button">Atualizar notícias</button>
+        </div>
+        <p id="news-status" class="rate-label" role="status" aria-live="polite"></p>
+        <p id="news-message" class="message" role="alert" aria-live="polite"></p>
+      </article>
+
+      <div id="news-list" class="news-list" aria-live="polite"></div>
+    </section>
+
+    <footer class="disclaimer">Notícias obtidas de feeds RSS públicos. Títulos, resumos e links pertencem às fontes originais; verifique a informação na publicação de origem.</footer>
+  </main>
+  <script src="/static/news-home.js?v=1" defer></script>
+</body>
+</html>
