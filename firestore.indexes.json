@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "proventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ticker", "order": "ASCENDING" },
+        { "fieldPath": "data_com", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

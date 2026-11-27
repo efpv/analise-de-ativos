@@ -1,10 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
+from google.api_core.exceptions import GoogleAPICallError
+from google.auth.exceptions import DefaultCredentialsError
 
 from app.core.config import settings
 from app.repositories.valuation_repository import ValuationRepository
@@ -12,6 +15,7 @@ from app.models.valuation import DividendPeriod, Valuation
 from app.schemas.cash_yield import (
     AnaliseResponse, CashYieldItem, CashYieldResponse, CriterioResponse, PrecoTetoResponse, YearYieldResponse,
 )
+from app.schemas.market import MarketDataResponse
 from app.schemas.valuation import (
     ComparisonResponse,
     DividendHistory,
@@ -26,6 +30,9 @@ from app.services.cash_yield_service import CashYieldService
 from app.services.ticker_service import TickerService
 from app.services.sector_peer_service import SectorPeerService
 from app.services.valuation_service import ValuationService
+from src.config import ConfigurationError, load_settings
+from src.repositories import market_repository
+from src.utils.dates import today_b3
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -257,6 +264,110 @@ def compare_assets(
     return ComparisonResponse(
         itens=[_response(item) for item in results],
         avisos=warnings,
+    )
+
+
+@router.get("/api/v1/market/{ticker}", response_model=MarketDataResponse)
+def get_market_data(
+    ticker: str,
+    inicio: date | None = Query(default=None),
+    fim: date | None = Query(default=None),
+    incluir_cotacoes: bool = Query(default=True),
+    incluir_proventos: bool = Query(default=True),
+):
+    try:
+        ticker = ticker_service.validate(ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        market_settings = load_settings(resolve_adc_project=False)
+    except ConfigurationError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível consultar o histórico de mercado no momento.",
+        ) from exc
+
+    fim_efetivo = fim or today_b3()
+    if inicio is None:
+        try:
+            inicio_efetivo = fim_efetivo.replace(year=fim_efetivo.year - market_settings.years)
+        except ValueError:
+            inicio_efetivo = fim_efetivo.replace(
+                year=fim_efetivo.year - market_settings.years, day=28
+            )
+    else:
+        inicio_efetivo = inicio
+
+    if inicio_efetivo > fim_efetivo:
+        raise HTTPException(
+            status_code=400,
+            detail="A data inicial não pode ser posterior à data final.",
+        )
+    if (fim_efetivo - inicio_efetivo).days > market_settings.max_range_days:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "O intervalo máximo permitido é de "
+                f"{market_settings.max_range_days} dias."
+            ),
+        )
+
+    try:
+        cotacoes = (
+            market_repository.get_cotacoes(
+                ticker,
+                inicio_efetivo.isoformat(),
+                fim_efetivo.isoformat(),
+                settings=market_settings,
+            )
+            if incluir_cotacoes
+            else []
+        )
+        proventos = (
+            market_repository.get_proventos(
+                ticker,
+                inicio_efetivo.isoformat(),
+                settings=market_settings,
+            )
+            if incluir_proventos
+            else []
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (DefaultCredentialsError, GoogleAPICallError, OSError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Não foi possível consultar o histórico de mercado no momento.",
+        ) from exc
+
+    avisos: list[str] = []
+    if incluir_cotacoes and not cotacoes:
+        avisos.append("Nenhuma cotação encontrada para o período informado.")
+    if incluir_proventos and not proventos:
+        avisos.append("Nenhum provento encontrado para o período informado.")
+    if (
+        incluir_cotacoes
+        and incluir_proventos
+        and not cotacoes
+        and not proventos
+    ):
+        avisos.append("Nenhum dado encontrado para o período informado.")
+    if incluir_proventos and any(
+        (item.get("fonte") or "").startswith("Yahoo") for item in proventos
+    ):
+        avisos.append(
+            "Proventos obtidos do Yahoo Finance: data_com igual à data ex e "
+            "data_pagamento indisponível."
+        )
+
+    return MarketDataResponse(
+        ticker=ticker,
+        inicio=inicio_efetivo.isoformat(),
+        fim=fim_efetivo.isoformat(),
+        cotacoes=cotacoes,
+        proventos=proventos,
+        avisos=list(dict.fromkeys(avisos)),
     )
 
 

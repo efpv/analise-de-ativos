@@ -10,6 +10,7 @@ htmlcov/
 venv/
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 data/*.sqlite*

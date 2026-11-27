@@ -38,6 +38,7 @@ O ranking está temporariamente desativado por padrão para reduzir consultas à
 - `GET /api/v1/cash-yield/{ticker}/analise?taxa=0.06` retorna a análise detalhada Bazin (veredito; preço-teto principal pela média do DPA dos 3 últimos anos fechados, comparação com o LTM e preço-teto conservador; saúde financeira adaptada ao setor — bancos e holdings não são avaliados por dívida/EBITDA — e riscos, incluindo ponto do ciclo, classes ON/PN e payout). Indicadores ausentes são informados como indisponíveis, nunca estimados.
 - `GET /api/v1/cash-yield` retorna o último resultado da seleção por cash-yield (`status`: `vazio`, `calculando` ou `pronto`); `POST /api/v1/cash-yield/refresh` inicia uma nova varredura e responde HTTP 202.
 - `GET /api/v1/comparison?tickers=ITSA4&tickers=BBAS3` compara de um a quatro ativos.
+- `GET /api/v1/market/{ticker}?inicio=2024-01-01&fim=2024-12-31` lê o histórico de cotações e proventos persistido pelo pipeline de mercado. Aceita `incluir_cotacoes=false` e `incluir_proventos=false`; sem `fim`, usa a data corrente na B3; sem `inicio`, usa `MARKET_YEARS` anos. Responde 400 para ticker/data inválidos ou intervalo acima de `MARKET_MAX_RANGE_DAYS` e 503 quando o Firestore ou o ADC estão indisponíveis.
 
 As taxas da API são decimais: `0.06` representa 6%. Na interface, a taxa é informada em porcentagem.
 Os três endpoints aceitam `periodo=ltm`, `3anos`, `5anos` ou `todos` (padrão: `5anos`).
@@ -46,10 +47,43 @@ A BRAPI pode exigir autenticação e um plano que inclua os dados de proventos. 
 
 Para investigar falhas, consulte os logs do serviço: as mensagens da aplicação informam o ticker e, quando disponível, o status HTTP da BRAPI ou o tipo da exceção. Elas não incluem a chave, URLs de requisição nem o conteúdo das respostas. Status 401, 403 e 429 podem indicar, respectivamente, problema de autenticação, restrição do plano ou limite de requisições; consulte também a documentação da fonte. Mensagens emitidas por bibliotecas externas podem ter outro formato.
 
+## Pipeline de mercado
+
+O pacote `src/` ingere cotações e proventos da B3 no Firestore e é executado como
+Cloud Run Job, separado da aplicação web:
+
+```bash
+python -m src.cli --full --dry-run
+python -m src.cli --full
+python -m src.cli --incremental
+```
+
+- Modos `--full` (janela de `MARKET_YEARS` anos) e `--incremental` (últimos
+  `MARKET_INCREMENTAL_DAYS` dias). `--dry-run` não cria cliente Firestore e não
+  exige ADC.
+- Universo: `--catalog`/`MARKET_TICKERS_FROM_CATALOG=true` (376 ações e units),
+  `--tickers-file` (`.json` ou `.txt`) ou `--tickers`/`MARKET_TICKERS` (piloto:
+  `ITUB4,BBAS3,WEGE3,VALE3`).
+- Escritas idempotentes com `merge=True` e ID determinístico de provento
+  (`ticker_tipo_data_com_valor`); o incremental une os pregões por data e não
+  apaga dias antigos.
+- Autenticação apenas por ADC. Variáveis: `GOOGLE_CLOUD_PROJECT`,
+  `FIRESTORE_PROJECT`, `FIRESTORE_DATABASE`, `MARKET_FIRESTORE_PREFIX`,
+  `MARKET_YEARS`, `MARKET_INCREMENTAL_DAYS`, `MARKET_MAX_RANGE_DAYS`,
+  `MARKET_WORKERS`, `MARKET_BATCH_SIZE`, `MARKET_MAX_RETRIES`,
+  `MARKET_RETRY_BACKOFF`, `MARKET_B3_COTAHIST_DIR` e `MARKET_B3_EVENTS_URL`.
+  Exemplo completo em `.env.example`.
+- A fonte oficial de eventos da B3 depende de `MARKET_B3_EVENTS_URL`; sem ela,
+  os proventos vêm do Yahoo Finance e a API sinaliza que `data_com` é igual à
+  data ex e que `data_pagamento` está indisponível.
+- Índice composto de `proventos` (`ticker`, `data_com`) em
+  `firestore.indexes.json`; deploy, Jobs, agendamento e diagnóstico em
+  `docs/operacao-pipeline-mercado.md`.
+
 ## Testes
 
 ```bash
-python -m pytest --cov=app --cov-report=term-missing
+python -m pytest --cov=app --cov=src --cov-report=term-missing
 node --test app/tests/test_ranking_ui.js app/tests/test_asset_search.js
 ```
 
