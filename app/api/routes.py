@@ -30,7 +30,7 @@ from app.services.cash_yield_service import CashYieldService
 from app.services.ticker_service import TickerService
 from app.services.sector_peer_service import SectorPeerService
 from app.services.valuation_service import ValuationService
-from src.config import ConfigurationError, load_settings
+from src.config import ConfigurationError, load_settings, pilot_tickers
 from src.repositories import market_repository
 from src.utils.dates import today_b3
 
@@ -228,8 +228,11 @@ def get_cash_yield_analysis(ticker: str, taxa: float = Query(default=0.06, ge=0.
 
 
 @router.post("/api/v1/cash-yield/refresh", response_model=CashYieldResponse, status_code=202)
-def refresh_cash_yield():
-    cash_yield_service.start()
+def refresh_cash_yield(escopo: Literal["catalogo", "piloto"] = Query(default="catalogo")):
+    if escopo == "piloto":
+        cash_yield_service.start(tickers=list(pilot_tickers()))
+    else:
+        cash_yield_service.start()
     return _cash_yield_response()
 
 

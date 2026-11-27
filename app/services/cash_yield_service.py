@@ -157,7 +157,9 @@ class CashYieldService:
                 self._loaded = True
             return self._running, self._processed, self._total, self._snapshot
 
-    def start(self, tickers: list[str] | None = None, wait: bool = False) -> bool:
+    def start(
+        self, tickers: list[str] | None = None, wait: bool = False, escopo: str = "catalogo"
+    ) -> bool:
         if self._state_store and self._remote_progress()[0]:
             return False
         with self._lock:
@@ -168,13 +170,13 @@ class CashYieldService:
             self._processed = 0
             self._total = len(universe)
         self._save_progress(True, 0, len(universe))
-        worker = threading.Thread(target=self._scan, args=(universe,), daemon=True)
+        worker = threading.Thread(target=self._scan, args=(universe, escopo), daemon=True)
         worker.start()
         if wait:
             worker.join()
         return True
 
-    def _scan(self, tickers: list[str]) -> None:
+    def _scan(self, tickers: list[str], escopo: str = "catalogo") -> None:
         candidates: list[CashYieldCandidate] = []
         rejected: list[str] = []
         failures = 0
@@ -206,6 +208,8 @@ class CashYieldService:
             with ThreadPoolExecutor(max_workers=max(1, settings.cash_yield_workers)) as executor:
                 list(executor.map(process, tickers))
             warnings = tuple(filter(None, (
+                f"Lista piloto: análise limitada a {len(tickers)} ativo(s) de validação."
+                if escopo == "piloto" else "",
                 f"{failures} ativo(s) foram ignorados por falta de dados nas fontes consultadas." if failures else "",
                 f"{len(rejected)} ativo(s) com y1 aprovado foram excluídos por endividamento, liquidez ou balanço."
                 if rejected else "",

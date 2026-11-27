@@ -152,6 +152,30 @@ def test_refresh_inicia_varredura_sem_bloquear(monkeypatch):
     assert response.json()["status"] == "calculando"
 
 
+def test_refresh_piloto_usa_quatro_tickers(monkeypatch):
+    monkeypatch.delenv("MARKET_TICKERS", raising=False)
+    started = []
+    service = SimpleNamespace(
+        start=lambda tickers=None: started.append(tickers), status=lambda: (True, 0, 4, None),
+    )
+    monkeypatch.setattr(routes, "cash_yield_service", service)
+    response = TestClient(app).post("/api/v1/cash-yield/refresh?escopo=piloto")
+    assert response.status_code == 202
+    assert started == [["ITUB4", "BBAS3", "WEGE3", "VALE3"]]
+
+
+def test_refresh_rejeita_escopo_invalido(monkeypatch):
+    service = SimpleNamespace(start=lambda: None, status=lambda: (False, 0, 0, None))
+    monkeypatch.setattr(routes, "cash_yield_service", service)
+    assert TestClient(app).post("/api/v1/cash-yield/refresh?escopo=outro").status_code == 422
+
+
+def test_varredura_piloto_avisa_escopo_limitado(tmp_path):
+    service = make_service({"AAAA3": qualifying("AAAA3")}, tmp_path)
+    service.start(["AAAA3"], wait=True, escopo="piloto")
+    assert service.status()[3].avisos[0] == "Lista piloto: análise limitada a 1 ativo(s) de validação."
+
+
 def test_pagina_cash_yield():
     response = TestClient(app).get("/cash-yield")
     assert response.status_code == 200
@@ -165,6 +189,7 @@ def test_pagina_atualizacao_cash_yield():
     assert response.status_code == 200
     assert "<title>Atualizar Cash-yield" in response.text
     assert 'id="cash-yield-refresh"' in response.text
+    assert 'id="cash-yield-refresh-pilot"' in response.text
 
 
 def age_cache(repository, ticker, dividends_days=0, price_days=0):
