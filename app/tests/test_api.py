@@ -16,7 +16,7 @@ from app.services.valuation_service import ValuationService
 def test_home_page(monkeypatch):
     monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=False))
     client = TestClient(app)
-    response = client.get("/")
+    response = client.get("/calculadora")
     assert response.status_code == 200
     assert "Preço Justo Bazin" in response.text
     assert "Dados utilizados no cálculo" in response.text
@@ -48,7 +48,7 @@ def test_catalogo_de_ativos_serve_json_local(monkeypatch):
 
 def test_enabled_ranking_is_visible(monkeypatch):
     monkeypatch.setattr(routes, "settings", SimpleNamespace(ranking_enabled=True))
-    response = TestClient(app).get("/")
+    response = TestClient(app).get("/calculadora")
     assert 'id="ranking" class="page-section dashboard-section">' in response.text
     assert '<a href="/ranking">Ranking Bazin</a>' in response.text
     assert "O Ranking Bazin está temporariamente desativado" not in response.text

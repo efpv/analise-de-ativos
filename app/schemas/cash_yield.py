@@ -69,6 +69,7 @@ class NoticiaResponse(BaseModel):
     link: str
     fonte: str
     publicado_em: datetime | None
+    categoria: str | None = None
 
 
 class NoticiasResponse(BaseModel):

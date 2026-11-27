@@ -28,7 +28,7 @@ from app.schemas.valuation import (
 )
 from app.services.bazin_analysis import analyze
 from app.services.cash_yield_service import CashYieldService
-from app.services.news_service import NewsService
+from app.services.news_service import HOME_CATEGORIES, NewsService
 from app.services.ticker_service import TickerService
 from app.services.sector_peer_service import SectorPeerService
 from app.services.valuation_service import ValuationService
@@ -238,13 +238,12 @@ def get_cash_yield_analysis(ticker: str, taxa: float = Query(default=0.06, ge=0.
     return analyze(asset, taxa, ltm, average)
 
 
-@router.get("/api/v1/cash-yield/{ticker}/noticias", response_model=NoticiasResponse)
-def get_cash_yield_news(ticker: str, empresa: str | None = Query(default=None, max_length=120)):
-    try:
-        ticker = ticker_service.validate(ticker)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return news_service.get_news(ticker, empresa)
+@router.get("/api/v1/news", response_model=NoticiasResponse)
+def get_news(categorias: list[str] = Query(default=list(HOME_CATEGORIES))):
+    invalid = [category for category in categorias if category.casefold() not in {c.casefold() for c in HOME_CATEGORIES}]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Categoria inválida: {invalid[0]}")
+    return news_service.get_by_categories(categorias)
 
 
 @router.post("/api/v1/cash-yield/refresh", response_model=CashYieldResponse, status_code=202)
@@ -403,6 +402,15 @@ def data_sources_page(request: Request):
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "home.html",
+        {"ranking_enabled": settings.ranking_enabled, "news_categories": HOME_CATEGORIES},
+    )
+
+
+@router.get("/calculadora", response_class=HTMLResponse)
+def calculator_page(request: Request):
     return templates.TemplateResponse(
         request,
         "index.html",

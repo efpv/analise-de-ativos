@@ -11,7 +11,6 @@ let currentItems = [];
 let emptyText = "";
 let sortKey = "y1_minimo";
 let sortDirection = "desc";
-let newsToken = 0;
 const modal = document.getElementById("analysis-modal");
 const modalContent = document.getElementById("analysis-modal-content");
 const modalTitle = document.getElementById("analysis-modal-title");
@@ -112,55 +111,7 @@ function money(value) {
   return value === null || value === undefined ? "indisponível" : currency.format(value);
 }
 
-function newsMessage(text) {
-  const element = document.createElement("li");
-  element.textContent = text;
-  return element;
-}
-
-function newsItemNode(item) {
-  const element = document.createElement("li");
-  const link = document.createElement("a");
-  link.href = item.link;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = item.titulo;
-  const details = document.createElement("span");
-  const published = item.publicado_em ? new Date(item.publicado_em).toLocaleDateString("pt-BR") : "";
-  details.textContent = ` — ${item.fonte}${published ? ` · ${published}` : ""}${item.resumo ? ` — ${item.resumo}` : ""}`;
-  element.append(link, details);
-  return element;
-}
-
-async function loadNews(ticker, empresa, list, token) {
-  try {
-    const params = new URLSearchParams();
-    if (empresa) params.set("empresa", empresa);
-    const query = params.toString();
-    const url = `/api/v1/cash-yield/${encodeURIComponent(ticker)}/noticias${query ? `?${query}` : ""}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error();
-    const data = await response.json();
-    if (token !== newsToken) return;
-    const nodes = data.itens.map(newsItemNode);
-    if (!nodes.length) nodes.push(newsMessage("Nenhuma notícia recente encontrada nas fontes consultadas."));
-    nodes.push(...data.avisos.map((aviso) => newsMessage(aviso)));
-    list.replaceChildren(...nodes);
-  } catch {
-    if (token !== newsToken) return;
-    list.replaceChildren(newsMessage("Não foi possível carregar as notícias agora."));
-  }
-}
-
-function newsSection(data, token) {
-  const list = document.createElement("ul");
-  list.appendChild(newsMessage("Carregando notícias..."));
-  const wrapper = section("Notícias sobre o ativo", [list]);
-  loadNews(data.ticker, data.empresa, list, token);
-  return wrapper;
-}
-
-function renderAnalysis(data, token) {
+function renderAnalysis(data) {
   const price = data.preco_teto;
   const margin = (value) => (value === null ? "" : ` (margem ${decimal.format(value)}%)`);
   modalTitle.replaceChildren(`${data.ticker} — ${data.empresa} (${data.perfil}) `, badge(data.veredito));
@@ -177,7 +128,6 @@ function renderAnalysis(data, token) {
     ]),
     section("Saúde financeira e indicadores", [list(data.saude_financeira)]),
     section("Riscos e pontos de atenção", [list(data.riscos)]),
-    newsSection(data, token),
   );
   if (typeof modal.showModal === "function") {
     if (!modal.open) modal.showModal();
@@ -193,13 +143,12 @@ function closeAnalysis() {
 }
 
 async function showAnalysis(ticker, button) {
-  const token = ++newsToken;
   button.disabled = true;
   messageText.textContent = "";
   try {
     const response = await fetch(`/api/v1/cash-yield/${encodeURIComponent(ticker)}/analise`);
     if (!response.ok) throw new Error();
-    renderAnalysis(await response.json(), token);
+    renderAnalysis(await response.json());
   } catch {
     messageText.textContent = `Não foi possível carregar a análise de ${ticker} agora.`;
   } finally {
