@@ -30,6 +30,13 @@ LEGAL_SUFFIXES = re.compile(
     r"\b(S\.?/?A\.?|S/?A|LTDA\.?|HOLDING|PARTICIPACOES|PARTICIPAÇÕES|COMPANHIA|CIA\.?)\b",
     re.IGNORECASE,
 )
+WEAK_KEYWORDS = {"banco", "brasil", "vale", "energia", "nacional", "geral", "americana"}
+MARKET_CONTEXT = {
+    "acoes", "acao", "b3", "bolsa", "dividendos", "dividendo", "lucro", "ibovespa",
+    "mercado", "investidor", "pregao", "cotacao", "balanco", "resultado", "proventos",
+    "ticker", "acionista", "papel", "papeis",
+}
+RELEVANT_CATEGORIES = {"mercado financeiro", "economia"}
 USER_AGENT = "PrecoJustoBazin/1.0 (consulta de noticias por RSS)"
 
 
@@ -52,7 +59,7 @@ def company_keywords(empresa: str) -> tuple[str, ...]:
     tokens = []
     for raw in clean.split():
         token = _normalize(raw).strip("-")
-        if len(token) < 3 or token in {"grupo", "do", "da", "de", "dos", "das"}:
+        if len(token) < 4 or token in {"grupo"}:
             continue
         if token not in tokens:
             tokens.append(token)
@@ -124,12 +131,6 @@ def _ordered_feeds(ticker: str, empresa: str, feeds: tuple[tuple[str, str], ...]
     ]
     ordered = [(f"Notícias de {ticker}", targeted)] if targeted else []
     ordered.extend(prioritized)
-    for feed_category, url in feeds:
-        if url in {item_url for _, item_url in ordered}:
-            continue
-        if targeted and urlparse(url).netloc.casefold().endswith("news.google.com"):
-            continue
-        ordered.append((feed_category, url))
     return ordered
 
 
@@ -168,7 +169,11 @@ def _child_link(entry: ElementTree.Element) -> str | None:
     return None
 
 
-def _matches(text: str, ticker: str, empresa: str) -> bool:
+def _has_market_context(haystack: str) -> bool:
+    return any(token in haystack for token in MARKET_CONTEXT)
+
+
+def _matches(text: str, ticker: str, empresa: str, category: str = "") -> bool:
     haystack = _normalize(text)
     if re.search(rf"(?<![a-z0-9]){re.escape(ticker.casefold())}(?![a-z0-9])", haystack):
         return True
@@ -176,7 +181,18 @@ def _matches(text: str, ticker: str, empresa: str) -> bool:
     if company and company in haystack:
         return True
     keywords = company_keywords(empresa)
-    return any(re.search(rf"(?<![a-z0-9]){re.escape(keyword)}(?![a-z0-9])", haystack) for keyword in keywords)
+    if not keywords:
+        return False
+    strong = [k for k in keywords if k not in WEAK_KEYWORDS]
+    has_strong = any(re.search(rf"(?<![a-z0-9]){re.escape(k)}(?![a-z0-9])", haystack) for k in strong)
+    if has_strong:
+        return True
+    weak_hits = sum(1 for k in keywords if k in WEAK_KEYWORDS and re.search(rf"(?<![a-z0-9]){re.escape(k)}(?![a-z0-9])", haystack))
+    if weak_hits == 0:
+        return False
+    if category.casefold() in RELEVANT_CATEGORIES or category.casefold().startswith("notícias de "):
+        return True
+    return weak_hits >= 2 and _has_market_context(haystack)
 
 
 class NewsService:
@@ -214,7 +230,7 @@ class NewsService:
             summary = _clean(_child_text(entry, "description", "summary", "content"))[:SUMMARY_LIMIT]
             source = _clean(_child_text(entry, "source")) or source_feed
             published = _parse_date(_child_text(entry, "pubdate", "published", "updated", "date"))
-            if not _matches(f"{title} {summary}", ticker, empresa):
+            if not _matches(f"{title} {summary}", ticker, empresa, category):
                 continue
             found.append(NoticiaResponse(
                 titulo=title, resumo=summary or None, link=link,

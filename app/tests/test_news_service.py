@@ -77,8 +77,8 @@ def test_lista_de_feeds_gera_busca_google_news_para_o_ticker(tmp_path):
     assert [url for _, url in ordered[1:]] == [
         "https://example.com/mercado.rss",
         "https://example.com/economia.rss",
-        "https://example.com/tech.rss",
     ]
+    assert all("tech.rss" not in url for _, url in ordered)
     assert "B3+bolsa" not in ordered[0][1]
 
 
@@ -110,7 +110,7 @@ def test_busca_filtra_por_ticker_ou_empresa_deduplica_e_ordena(tmp_path):
     assert by_title["Empresa AAAA3 anuncia dividendos"].publicado_em.day == 25
     assert "Banco AAAA3" in by_title["AAAA3 sobe após resultado"].resumo
     assert by_title["AAAA3 sobe após resultado"].fonte == "Google Notícias"
-    assert any("2 fonte(s)" in text for text in result.avisos)
+    assert any("1 fonte(s)" in text for text in result.avisos)
 
     first_call_count = len(calls)
     service.get_news("AAAA3", "Empresa AAAA3")
