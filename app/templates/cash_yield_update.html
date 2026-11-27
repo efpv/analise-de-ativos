@@ -31,15 +31,19 @@
         <p class="eyebrow">Gerenciamento da seleção</p>
         <h1>Gerar ou atualizar lista Cash-yield</h1>
         <p class="section-subtitle">A análise pode levar vários minutos. O resultado será salvo e ficará disponível na página Cash-yield.</p>
+        <p class="section-subtitle">O catálogo analisa 376 ações e units. O piloto usa os 4 ativos de validação (ITUB4, BBAS3, WEGE3 e VALE3, configuráveis por <code>MARKET_TICKERS</code>) e substitui temporariamente a lista exibida.</p>
       </div>
       <article class="panel interpretation">
-        <button id="cash-yield-refresh" class="secondary-button" type="button">Gerar lista</button>
+        <div class="section-actions">
+          <button id="cash-yield-refresh" class="secondary-button" type="button">Gerar lista</button>
+          <button id="cash-yield-refresh-pilot" class="secondary-button" type="button">Gerar piloto</button>
+        </div>
         <p id="cash-yield-status" class="rate-label" role="status" aria-live="polite"></p>
         <p id="cash-yield-message" class="message" role="alert" aria-live="polite"></p>
       </article>
     </section>
     <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. A seleção por cash-yield não constitui recomendação de compra ou venda de ativos.</footer>
   </main>
-  <script src="/static/cash-yield.js?v=6" defer></script>
+  <script src="/static/cash-yield.js?v=7" defer></script>
 </body>
 </html>

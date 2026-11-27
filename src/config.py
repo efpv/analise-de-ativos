@@ -18,7 +18,8 @@ from src.transformers.ticker import normalize_ticker
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_DEFAULT_TICKERS = "ITUB4,BBAS3,WEGE3,VALE3"
+DEFAULT_TICKERS = "ITUB4,BBAS3,WEGE3,VALE3"
+_DEFAULT_TICKERS = DEFAULT_TICKERS
 _TRUE_VALUES = frozenset({"true", "1", "yes"})
 
 
@@ -92,6 +93,17 @@ def _parse_ticker_csv(value: str) -> tuple[str, ...]:
             seen.add(normalized)
             tickers.append(normalized)
     return tuple(tickers)
+
+
+def pilot_tickers(env: Mapping[str, str] | None = None) -> tuple[str, ...]:
+    """Universo do piloto (4 tickers), configurável por ``MARKET_TICKERS``.
+
+    Ignora ``MARKET_TICKERS_FROM_CATALOG`` e ``MARKET_TICKERS_FILE``: o piloto é
+    sempre a lista curta usada para validação rápida.
+    """
+    source = os.environ if env is None else env
+    raw = (source.get("MARKET_TICKERS") or "").strip() or DEFAULT_TICKERS
+    return _parse_ticker_csv(raw) or _parse_ticker_csv(DEFAULT_TICKERS)
 
 
 def read_tickers_file(path: str | Path) -> tuple[str, ...]:

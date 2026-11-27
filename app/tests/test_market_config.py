@@ -1,6 +1,8 @@
 import pytest
 
-from src.config import ConfigurationError, collection_name, load_settings, read_tickers_file
+from src.config import (
+    ConfigurationError, collection_name, load_settings, pilot_tickers, read_tickers_file,
+)
 
 
 def test_defaults_do_piloto():
@@ -11,6 +13,20 @@ def test_defaults_do_piloto():
     assert settings.batch_size == 500
     assert settings.workers == 2
     assert settings.firestore_database == "(default)"
+
+
+def test_pilot_tickers_usa_default_de_quatro():
+    assert pilot_tickers(env={}) == ("ITUB4", "BBAS3", "WEGE3", "VALE3")
+
+
+def test_pilot_tickers_respeita_market_tickers():
+    assert pilot_tickers(env={"MARKET_TICKERS": "petr4, vale3, PETR4"}) == ("PETR4", "VALE3")
+
+
+def test_pilot_tickers_ignora_modo_catalogo():
+    assert pilot_tickers(env={"MARKET_TICKERS_FROM_CATALOG": "true"}) == (
+        "ITUB4", "BBAS3", "WEGE3", "VALE3",
+    )
 
 
 def test_catalogo_tem_376_tickers():

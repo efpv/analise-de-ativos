@@ -153,7 +153,7 @@ Definidas em `app/core/config.py`:
 4. **Classificação** pela margem: `>30` Muito Barata, `>10` Barata, `-10..10` Justa, `-30..<-10` Cara, `<-30` Muito Cara. Limites são testados explicitamente.
 5. **Resumo**: maior/menor anual e crescimento médio das variações anuais consecutivas; crescimento fica indisponível com lacunas/base zero. No LTM, estatísticas anuais não se aplicam.
 6. **Valores atípicos** (>2,5× mediana dos demais anos) geram aviso, mas **não são removidos** da média.
-7. **Cash-yield**: y1 dos três últimos anos encerrados ≥ 6 em todos, com dividendos pagos em todos; ordenação pelo menor y1 e, em empate, pelo y1 do último ano; API expõe no máximo **30** itens com `posicao` começando em 1.
+7. **Cash-yield**: y1 dos três últimos anos encerrados ≥ 6 em todos, com dividendos pagos em todos; ordenação pelo menor y1 e, em empate, pelo y1 do último ano; API expõe no máximo **30** itens com `posicao` começando em 1. A varredura padrão usa o catálogo (376); `POST /api/v1/cash-yield/refresh?escopo=piloto` limita aos 4 tickers de `MARKET_TICKERS` e marca o resultado com aviso.
 8. **Ranking**: tickers fixos `BBAS3, BBSE3, ITSA4, PETR4, TAEE11, CMIG4, TRPL4, SAPR4`; reordenar no front-end reusa dados carregados, sem novas consultas.
 9. **Comparação**: 1 a 4 tickers, sem duplicados; clique no ticker da coluna recarrega a análise mantendo taxa e período.
 10. **Pares setoriais**: lista curada em `app/services/sector_peer_service.py`; até 3 pares por ativo.

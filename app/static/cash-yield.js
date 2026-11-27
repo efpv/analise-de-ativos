@@ -1,4 +1,5 @@
 const refreshButton = document.getElementById("cash-yield-refresh");
+const pilotButton = document.getElementById("cash-yield-refresh-pilot");
 const statusText = document.getElementById("cash-yield-status");
 const messageText = document.getElementById("cash-yield-message");
 const body = document.getElementById("cash-yield-body");
@@ -191,6 +192,10 @@ function render(data) {
     refreshButton.disabled = running;
     refreshButton.textContent = data.status === "vazio" ? "Gerar lista" : "Atualizar lista";
   }
+  if (pilotButton) {
+    pilotButton.disabled = running;
+    pilotButton.textContent = data.status === "vazio" ? "Gerar piloto" : "Atualizar piloto";
+  }
   messageText.textContent = "";
   const parts = [];
   if (running) parts.push(`Analisando ativos: ${data.processados} de ${data.total}...`);
@@ -222,6 +227,7 @@ async function request(url, options) {
   } catch {
     messageText.textContent = "Não foi possível consultar a seleção agora. Tente novamente.";
     if (refreshButton) refreshButton.disabled = false;
+    if (pilotButton) pilotButton.disabled = false;
   }
 }
 
@@ -238,11 +244,18 @@ document.querySelectorAll("[data-sort]").forEach((button) => {
   });
 });
 
+function startRefresh(scope) {
+  if (refreshButton) refreshButton.disabled = true;
+  if (pilotButton) pilotButton.disabled = true;
+  request(`/api/v1/cash-yield/refresh?escopo=${scope}`, { method: "POST" });
+}
+
 if (refreshButton) {
-  refreshButton.addEventListener("click", () => {
-    refreshButton.disabled = true;
-    request("/api/v1/cash-yield/refresh", { method: "POST" });
-  });
+  refreshButton.addEventListener("click", () => startRefresh("catalogo"));
+}
+
+if (pilotButton) {
+  pilotButton.addEventListener("click", () => startRefresh("piloto"));
 }
 
 const themeToggle = document.getElementById("theme-toggle");

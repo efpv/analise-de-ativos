@@ -84,8 +84,8 @@ Esta opção aumenta o custo, porque a CPU passa a ser cobrada enquanto a instâ
 
 ## 7. Verificar
 
-1. Abra `/cash-yield` e clique em **Gerar lista**.
-2. Confirme que o progresso ("Analisando ativos: N de 376...") avança.
+1. Abra `/gerarlista` e clique em **Gerar lista** (catálogo com 376 ativos) ou em **Gerar piloto** (4 ativos de validação, útil para um teste rápido).
+2. Confirme que o progresso ("Analisando ativos: N de 376..." ou "N de 4..." no piloto) avança.
 3. No Console, em **Firestore > Dados**, confirme as coleções `asset_cache` e `cash_yield` (com os documentos `snapshot` e `progress`). Se usar `FIRESTORE_PREFIX`, os nomes começam com o prefixo.
 4. Depois que a lista estiver pronta, faça um novo deploy ou reinicie o serviço e abra `/cash-yield` de novo. A lista deve continuar lá.
 5. Uma nova varredura deve ser bem mais rápida: dividendos são reaproveitados por 30 dias e preços por 1 dia.
