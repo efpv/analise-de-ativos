@@ -374,6 +374,13 @@ def get_market_data(
     )
 
 
+@router.get("/como-funciona", response_class=HTMLResponse)
+def data_sources_page(request: Request):
+    return templates.TemplateResponse(
+        request, "fontes_dados.html", {"ranking_enabled": settings.ranking_enabled}
+    )
+
+
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse(

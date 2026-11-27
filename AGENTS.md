@@ -47,6 +47,7 @@ Ponto de entrada: `app/main.py`. Router: `app/api/routes.py`.
 |---|---|
 | `GET /` e `GET /ranking` | Páginas HTML (mesmo template). |
 | `GET /cash-yield` e `GET /gerarlista` | Páginas da seleção por cash-yield. |
+| `GET /como-funciona` | Página explicativa: dados coletados, fontes, regras e limites. |
 | `GET /api/v1/assets` | Serve `data/ativos_b3.json`. |
 | `GET /api/v1/valuation/{ticker}` | Valuation de um ativo. |
 | `GET /api/v1/ranking` | Ranking (503 se `ENABLE_RANKING != true`). |

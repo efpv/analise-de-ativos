@@ -233,3 +233,33 @@ th[aria-sort="descending"] .sort-button::after { content: "▼"; font-size: 9px;
 .badge-reprovado, .badge-reprovada { background: rgba(220, 60, 60, .2); color: #dc3c3c; }
 .analysis-section { margin-top: 1rem; }
 .analysis-section ul { padding-left: 1.2rem; }
+
+.info-section { margin-top: 38px; }
+.jump-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.jump-links a { text-decoration: none; }
+.flow-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.flow-item { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; padding: 17px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+.flow-number { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: var(--soft); color: var(--blue); font-weight: 800; }
+.flow-item h3 { margin: 0 0 6px; color: var(--navy); font-size: 15px; }
+.flow-item p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.flow-item a { color: var(--blue); }
+.plain-list { margin: 0; padding-left: 19px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.plain-list li + li { margin-top: 8px; }
+.plain-list strong { color: var(--ink); }
+.source-table { min-width: 680px; }
+.source-table td { vertical-align: top; font-size: 12px; line-height: 1.5; }
+.source-table td:first-child { min-width: 155px; }
+.source-caption { color: var(--muted); font-size: 11px; }
+.faq details + details { border-top: 1px solid var(--line); }
+.faq details { padding: 12px 0; }
+.faq summary { color: var(--navy); font-size: 14px; font-weight: 750; cursor: pointer; }
+.faq p { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.disclaimer a { color: var(--blue); }
+
+@media (max-width: 620px) {
+  .jump-links a { flex: 1 1 auto; min-width: 105px; }
+  .flow-item { grid-template-columns: 1fr; gap: 9px; }
+  .flow-number { width: 30px; height: 30px; }
+}
+
+.source-table th, .source-table td { white-space: normal; }
