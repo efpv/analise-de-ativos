@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f7fb">
   <title>Cash-yield | Seleção de ações para compra</title>
-  <link rel="stylesheet" href="/static/styles.css?v=12">
+  <link rel="stylesheet" href="/static/styles.css?v=13">
 </head>
 <body data-theme="dark">
   <main class="app-shell">
@@ -51,7 +51,6 @@
 
       <p id="cash-yield-status" class="rate-label" role="status" aria-live="polite"></p>
       <p id="cash-yield-message" class="message" role="alert" aria-live="polite"></p>
-      <article id="analysis-panel" class="panel" hidden aria-live="polite"></article>
       <div class="table-wrap">
         <table>
           <thead><tr>
@@ -61,17 +60,25 @@
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="preco_atual">Preço atual</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1">y1 (último ano)</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1_minimo">y1 mínimo (3 anos)</button></th>
-            <th>y1 por ano</th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="veredito">Veredito</button></th>
             <th>Dív. líq./EBITDA</th>
             <th>Análise</th>
           </tr></thead>
-          <tbody id="cash-yield-body"><tr><td colspan="10" class="empty-state">A lista ainda não foi gerada. Acesse /gerarlista para iniciar a análise.</td></tr></tbody>
+          <tbody id="cash-yield-body"><tr><td colspan="9" class="empty-state">A lista ainda não foi gerada. Acesse /gerarlista para iniciar a análise.</td></tr></tbody>
         </table>
       </div>
+      <dialog id="analysis-modal" class="analysis-modal" aria-labelledby="analysis-modal-title">
+        <article class="panel analysis-modal-panel">
+          <div class="analysis-modal-header">
+            <h3 id="analysis-modal-title">Análise</h3>
+            <button id="analysis-modal-close" class="secondary-button analysis-modal-close" type="button" aria-label="Fechar análise">Fechar</button>
+          </div>
+          <div id="analysis-modal-content" aria-live="polite"></div>
+        </article>
+      </dialog>
     </section>
     <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. A seleção por cash-yield utiliza dividendos históricos, que não garantem resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
   </main>
-  <script src="/static/cash-yield.js?v=7" defer></script>
+  <script src="/static/cash-yield.js?v=8" defer></script>
 </body>
 </html>

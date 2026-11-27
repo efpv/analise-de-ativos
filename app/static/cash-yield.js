@@ -11,7 +11,10 @@ let currentItems = [];
 let emptyText = "";
 let sortKey = "posicao";
 let sortDirection = "asc";
-const panel = document.getElementById("analysis-panel");
+const modal = document.getElementById("analysis-modal");
+const modalContent = document.getElementById("analysis-modal-content");
+const modalTitle = document.getElementById("analysis-modal-title");
+const modalClose = document.getElementById("analysis-modal-close");
 const VERDICTS = { aprovada: "Aprovada", atencao: "Atenção", aprovado: "Aprovado", reprovado: "Reprovado", reprovada: "Reprovada" };
 
 function cell(text, className) {
@@ -68,7 +71,7 @@ function analysisCell(item) {
   const element = cell("");
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "sort-button";
+  button.className = "secondary-button table-action";
   button.textContent = "Análise";
   button.addEventListener("click", () => showAnalysis(item.ticker, button));
   element.appendChild(button);
@@ -110,11 +113,9 @@ function money(value) {
 
 function renderAnalysis(data) {
   const price = data.preco_teto;
-  const title = document.createElement("h3");
-  title.append(`${data.ticker} — ${data.empresa} (${data.perfil}) `, badge(data.veredito));
   const margin = (value) => (value === null ? "" : ` (margem ${decimal.format(value)}%)`);
-  panel.replaceChildren(
-    title,
+  modalTitle.replaceChildren(`${data.ticker} — ${data.empresa} (${data.perfil}) `, badge(data.veredito));
+  modalContent.replaceChildren(
     section("Resumo executivo / Veredito Bazin", [paragraph(data.resumo), list(data.criterios_principais)]),
     section("Preço-teto e dividendos", [
       list([
@@ -128,8 +129,17 @@ function renderAnalysis(data) {
     section("Saúde financeira e indicadores", [list(data.saude_financeira)]),
     section("Riscos e pontos de atenção", [list(data.riscos)]),
   );
-  panel.hidden = false;
-  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (typeof modal.showModal === "function") {
+    if (!modal.open) modal.showModal();
+  } else {
+    modal.setAttribute("open", "");
+  }
+}
+
+function closeAnalysis() {
+  if (!modal) return;
+  if (modal.open) modal.close();
+  modal.removeAttribute("open");
 }
 
 async function showAnalysis(ticker, button) {
@@ -163,7 +173,7 @@ function drawRows() {
   if (!items.length) {
     const row = document.createElement("tr");
     const empty = cell(emptyText, "empty-state");
-    empty.colSpan = 10;
+    empty.colSpan = 9;
     row.appendChild(empty);
     body.appendChild(row);
     return;
@@ -177,7 +187,6 @@ function drawRows() {
       cell(currency.format(item.preco_atual)),
       cell(`${decimal.format(item.y1)}%`),
       cell(`${decimal.format(item.y1_minimo)}%`),
-      cell(item.anos.map((year) => `${year.ano}: ${decimal.format(year.y1)}%`).join(" · ")),
       verdictCell(item),
       debtCell(item),
       analysisCell(item),
@@ -256,6 +265,17 @@ if (refreshButton) {
 
 if (pilotButton) {
   pilotButton.addEventListener("click", () => startRefresh("piloto"));
+}
+
+if (modalClose) modalClose.addEventListener("click", closeAnalysis);
+if (modal) {
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeAnalysis();
+  });
+  modal.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeAnalysis();
+  });
 }
 
 const themeToggle = document.getElementById("theme-toggle");
