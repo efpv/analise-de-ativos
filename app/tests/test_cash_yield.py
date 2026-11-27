@@ -140,6 +140,17 @@ def test_api_limita_a_30_e_retorna_posicoes(tmp_path, monkeypatch):
     assert data["itens"][0]["ticker"] == tickers[0]
 
 
+def test_api_inclui_preco_teto_pela_media_dos_tres_anos(tmp_path, monkeypatch):
+    service = make_service({"AAAA3": qualifying("AAAA3")}, tmp_path)
+    monkeypatch.setattr(routes, "cash_yield_service", service)
+    monkeypatch.setattr(routes, "settings", SimpleNamespace(bazin_rate=0.08))
+    service.start(["AAAA3"], wait=True)
+
+    item = TestClient(app).get("/api/v1/cash-yield").json()["itens"][0]
+    assert item["preco_atual"] == pytest.approx(10.0)
+    assert item["preco_teto"] == pytest.approx((0.7 + 0.8 + 0.9) / 3 / 0.08, rel=1e-6)
+
+
 def test_refresh_inicia_varredura_sem_bloquear(monkeypatch):
     started = []
     service = SimpleNamespace(
@@ -181,6 +192,9 @@ def test_pagina_cash_yield():
     assert response.status_code == 200
     assert "30 melhores ações" in response.text
     assert "cash-yield-body" in response.text
+    assert 'data-sort="preco_teto"' in response.text
+    assert "Preço teto" in response.text
+    assert 'colspan="9"' in response.text
     assert 'id="cash-yield-refresh"' not in response.text
 
 

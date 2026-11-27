@@ -13,7 +13,8 @@ from app.core.config import settings
 from app.repositories.valuation_repository import ValuationRepository
 from app.models.valuation import DividendPeriod, Valuation
 from app.schemas.cash_yield import (
-    AnaliseResponse, CashYieldItem, CashYieldResponse, CriterioResponse, PrecoTetoResponse, YearYieldResponse,
+    AnaliseResponse, CashYieldItem, CashYieldResponse, CriterioResponse, NoticiasResponse, PrecoTetoResponse,
+    YearYieldResponse,
 )
 from app.schemas.market import MarketDataResponse
 from app.schemas.valuation import (
@@ -27,6 +28,7 @@ from app.schemas.valuation import (
 )
 from app.services.bazin_analysis import analyze
 from app.services.cash_yield_service import CashYieldService
+from app.services.news_service import NewsService
 from app.services.ticker_service import TickerService
 from app.services.sector_peer_service import SectorPeerService
 from app.services.valuation_service import ValuationService
@@ -41,6 +43,7 @@ ticker_service = TickerService()
 valuation_service = ValuationService()
 sector_peer_service = SectorPeerService()
 cash_yield_service = CashYieldService(ticker_service)
+news_service = NewsService()
 CASH_YIELD_LIMIT = 30
 RANKING_TICKERS = ("BBAS3", "BBSE3", "ITSA4", "PETR4", "TAEE11", "CMIG4", "TRPL4", "SAPR4")
 
@@ -177,12 +180,20 @@ def get_ranking(
     )
 
 
+def _cash_yield_preco_teto(item) -> float:
+    """Preço-teto Bazin: média do DPA dos três anos fechados dividida pela taxa configurada."""
+    if not item.anos or settings.bazin_rate <= 0:
+        return 0.0
+    return round(sum(year.dividendos for year in item.anos) / len(item.anos) / settings.bazin_rate, 8)
+
+
 def _cash_yield_response() -> CashYieldResponse:
     running, processed, total, snapshot = cash_yield_service.status()
     items = [
         CashYieldItem(
             posicao=position, ticker=item.ticker, empresa=item.empresa,
-            preco_atual=round(item.preco_atual, 8), y1=round(item.y1, 4),
+            preco_atual=round(item.preco_atual, 8), preco_teto=_cash_yield_preco_teto(item),
+            y1=round(item.y1, 4),
             y1_minimo=round(item.y1_minimo, 4),
             anos=[
                 YearYieldResponse(ano=year.ano, dividendos=round(year.dividendos, 8), y1=round(year.y1, 4))
@@ -225,6 +236,15 @@ def get_cash_yield_analysis(ticker: str, taxa: float = Query(default=0.06, ge=0.
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return analyze(asset, taxa, ltm, average)
+
+
+@router.get("/api/v1/cash-yield/{ticker}/noticias", response_model=NoticiasResponse)
+def get_cash_yield_news(ticker: str, empresa: str | None = Query(default=None, max_length=120)):
+    try:
+        ticker = ticker_service.validate(ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return news_service.get_news(ticker, empresa)
 
 
 @router.post("/api/v1/cash-yield/refresh", response_model=CashYieldResponse, status_code=202)
