@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f7fb">
+  <title>Como funciona e fontes dos dados | Preço Justo Bazin</title>
+  <link rel="stylesheet" href="/static/styles.css?v=12">
+</head>
+<body data-theme="dark">
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Preço Justo Bazin - início">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>
+          <span class="eyebrow">Análise de dividendos</span>
+          <strong class="brand-title">Preço Justo Bazin</strong>
+        </span>
+      </a>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/#comparacao">Comparar ativos</a>
+        <a href="/cash-yield">Cash-yield</a>
+        <a href="/como-funciona" aria-current="page">Como funciona</a>
+        <a href="/ranking"{% if not ranking_enabled %} hidden{% endif %}>Ranking Bazin</a>
+      </nav>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar tema claro" title="Alternar tema">
+        <span aria-hidden="true">◐</span><span class="theme-label">Tema</span>
+      </button>
+    </header>
+
+    <section id="resumo" class="page-section">
+      <div class="section-heading">
+        <p class="eyebrow">Transparência dos dados</p>
+        <h1>Como a aplicação funciona</h1>
+        <p class="section-subtitle">De onde vem cada número, o que acontece depois que você digita um código de ação e por que o resultado pode mudar de um dia para o outro.</p>
+      </div>
+      <div class="methodology-notice">
+        <strong>Em poucas palavras:</strong> você informa o ativo e a taxa; a aplicação busca preço e dividendos em serviços externos, aplica as regras do Método de Bazin e mostra o resultado. Ela não inventa valores: quando uma fonte não responde, avisa.
+      </div>
+      <nav class="jump-links" aria-label="Seções desta página">
+        <a class="secondary-button" href="#coleta">1. Coleta</a>
+        <a class="secondary-button" href="#dados">2. Dados usados</a>
+        <a class="secondary-button" href="#fontes">3. Fontes</a>
+        <a class="secondary-button" href="#regras">4. Regras</a>
+        <a class="secondary-button" href="#limites">5. Limites</a>
+        <a class="secondary-button" href="#perguntas">6. Dúvidas</a>
+      </nav>
+    </section>
+
+    <section id="coleta" class="page-section info-section">
+      <div class="section-heading">
+        <p class="eyebrow">Passo a passo</p>
+        <h2>O caminho de um número</h2>
+        <p class="section-subtitle">Cada etapa acontece no momento da sua consulta, exceto a lista cash-yield e o histórico de mercado, que são preparados em segundo plano.</p>
+      </div>
+      <ol class="flow-list">
+        <li class="flow-item">
+          <span class="flow-number" aria-hidden="true">1</span>
+          <div>
+            <h3>Você escolhe o ativo</h3>
+            <p>Ao digitar, a busca sugere códigos e nomes de um catálogo salvo dentro da aplicação. Isso é só uma ajuda para encontrar o ticker; o código é validado antes da consulta. Exemplos aceitos: BBAS3, PETR4 e ITUB4.</p>
+          </div>
+        </li>
+        <li class="flow-item">
+          <span class="flow-number" aria-hidden="true">2</span>
+          <div>
+            <h3>A aplicação busca preço e dividendos</h3>
+            <p>Primeiro tenta a BRAPI. Se ela falhar ou não trouxer histórico de dividendos, tenta o Yahoo Finance. A fonte que respondeu aparece no resultado, junto com a data da consulta.</p>
+          </div>
+        </li>
+        <li class="flow-item">
+          <span class="flow-number" aria-hidden="true">3</span>
+          <div>
+            <h3>O cálculo do preço justo é feito</h3>
+            <p>A aplicação soma os dividendos dos anos escolhidos, divide pelo número de anos e depois divide pela taxa (6% por padrão). O resultado é comparado com o preço atual: quanto maior a diferença a favor, mais barato o ativo aparece na classificação.</p>
+          </div>
+        </li>
+        <li class="flow-item">
+          <span class="flow-number" aria-hidden="true">4</span>
+          <div>
+            <h3>A lista cash-yield é preparada</h3>
+            <p>Sob comando na página <a href="/gerarlista">Gerar lista</a>, a aplicação verifica os 376 ativos do catálogo. Ela procura quem pagou dividendos equivalentes a pelo menos 6% do preço em cada um dos três últimos anos fechados. Depois consulta indicadores de balanço e mostra até 30 resultados. O botão <strong>Gerar piloto</strong> faz o mesmo teste em apenas quatro ativos, para conferir o fluxo rapidamente.</p>
+          </div>
+        </li>
+        <li class="flow-item">
+          <span class="flow-number" aria-hidden="true">5</span>
+          <div>
+            <h3>O histórico de mercado é um processo separado</h3>
+            <p>Uma rotina independente pode guardar cotações diárias e proventos no banco Firestore. A API <code>/api/v1/market/{ticker}</code> apenas lê esse histórico. Esses dados não são usados pelo cálculo da calculadora nem pela lista cash-yield.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="dados" class="page-section info-section">
+      <div class="section-heading">
+        <p class="eyebrow">O que entra na conta</p>
+        <h2>Quais informações são coletadas</h2>
+        <p class="section-subtitle">São dados de mercado, não dados pessoais. A aplicação não pede login nem cadastro para consultar os ativos.</p>
+      </div>
+      <article class="panel">
+        <ul class="plain-list">
+          <li><strong>Código e nome do ativo:</strong> usados para identificar a empresa e mostrar o resultado.</li>
+          <li><strong>Preço atual:</strong> usado no denominador do preço justo e no cálculo do dividend yield.</li>
+          <li><strong>Dividendos históricos:</strong> valores pagos ou com data ex informada, agrupados por ano.</li>
+          <li><strong>Datas dos eventos:</strong> data de pagamento, data ex e data-com, quando a fonte informa. Nem toda fonte informa todas.</li>
+          <li><strong>Indicadores de balanço:</strong> dívida líquida, EBITDA, caixa, ROE, liquidez, volume negociado e fluxo de caixa. Entram apenas na análise detalhada e no filtro da lista cash-yield.</li>
+          <li><strong>Cotações diárias e proventos do histórico de mercado:</strong> coletados pela rotina separada, apenas quando ela é executada.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="fontes" class="page-section info-section">
+      <div class="section-heading">
+        <p class="eyebrow">Origem dos números</p>
+        <h2>Fontes dos dados</h2>
+        <p class="section-subtitle">Mais de uma fonte pode ser consultada para o mesmo ativo. A tabela mostra o que cada uma fornece e onde aparece.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="source-table">
+          <thead>
+            <tr><th scope="col">Fonte</th><th scope="col">O que fornece</th><th scope="col">Onde aparece</th><th scope="col">Atenção</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Catálogo local</strong><br><span class="source-caption">arquivo <code>ativos_b3.json</code></span></td>
+              <td>Lista de códigos, nomes e tipo de ativo.</td>
+              <td>Busca com sugestões e universo da lista cash-yield.</td>
+              <td>É um retrato salvo no projeto, sem atualização automática. Não cobre toda a B3.</td>
+            </tr>
+            <tr>
+              <td><a href="https://brapi.dev/" target="_blank" rel="noopener noreferrer">BRAPI</a></td>
+              <td>Preço atual, histórico de dividendos com datas e alguns indicadores.</td>
+              <td>Calculadora, comparação, ranking e lista cash-yield.</td>
+              <td>É a primeira tentativa. Sem chave ou com falha na consulta, o Yahoo assume.</td>
+            </tr>
+            <tr>
+              <td><a href="https://finance.yahoo.com/" target="_blank" rel="noopener noreferrer">Yahoo Finance</a></td>
+              <td>Preço, dividendos e indicadores de balanço.</td>
+              <td>Substituto da BRAPI e filtro de saúde financeira do cash-yield.</td>
+              <td>Informa data ex-dividendo, não data de pagamento. Por isso o período de 12 meses pode ficar indisponível nessa fonte.</td>
+            </tr>
+            <tr>
+              <td>B3 — arquivos COTAHIST</td>
+              <td>Cotações diárias oficiais de cada ano.</td>
+              <td>Histórico de mercado consultado pela API.</td>
+              <td>Depende dos arquivos anuais estarem disponíveis; se faltarem, a rotina avisa.</td>
+            </tr>
+            <tr>
+              <td>B3 — eventos de proventos</td>
+              <td>Proventos oficiais com datas e valores.</td>
+              <td>Histórico de mercado consultado pela API.</td>
+              <td>A URL e o formato oficiais ainda estão sendo confirmados. Sem essa configuração, a rotina usa o Yahoo.</td>
+            </tr>
+            <tr>
+              <td>Armazenamento local ou Firestore</td>
+              <td>Resultados já calculados: memória da calculadora, lista pronta e progresso da varredura.</td>
+              <td>Páginas da aplicação ao recarregar.</td>
+              <td>O cache evita consultas repetidas. O Firestore é opcional e usado quando configurado.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="regras" class="page-section info-section">
+      <div class="section-heading">
+        <p class="eyebrow">Regras do cálculo</p>
+        <h2>O que muda o resultado</h2>
+        <p class="section-subtitle">As mesmas regras valem para qualquer ativo. Entendê-las ajuda a interpretar números diferentes entre uma consulta e outra.</p>
+      </div>
+      <article class="panel">
+        <dl class="data-list">
+          <div><dt>Taxa Bazin</dt><dd>6% por padrão; na tela você pode trocar para 8%, 10% ou outro valor.</dd></div>
+          <div><dt>Período dos dividendos</dt><dd>3 anos (padrão na tela), 5 anos, todos os anos registrados ou últimos 12 meses.</dd></div>
+          <div><dt>Anos sem registro</dt><dd>Nos períodos de 3 e 5 anos eles entram como zero e geram aviso.</dd></div>
+          <div><dt>Dividend yield</dt><dd>Sempre usa os dividendos do último ano civil encerrado divididos pelo preço atual, qualquer que seja o período escolhido.</dd></div>
+          <div><dt>Valores atípicos</dt><dd>Um ano muito diferente dos demais ganha aviso, mas continua entrando na média.</dd></div>
+          <div><dt>Lista cash-yield</dt><dd>Exige pelo menos 6% ao ano nos três últimos anos fechados; a ordem prioriza o menor desses três valores.</dd></div>
+        </dl>
+      </article>
+      <div class="warning-list">
+        <strong>Antes de decidir, lembre-se:</strong>
+        <ul>
+          <li>Dividendos passados não garantem pagamentos futuros.</li>
+          <li>O preço exibido pode estar atrasado em relação ao mercado.</li>
+          <li>O catálogo é limitado: um ativo ausente dele não significa que a empresa não exista.</li>
+          <li>Dados de balanço podem estar desatualizados na fonte.</li>
+          <li>Esta ferramenta tem finalidade educacional e não é recomendação de compra ou venda.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="limites" class="page-section info-section">
+      <div class="section-heading">
+        <p class="eyebrow">Limites da ferramenta</p>
+        <h2>O que a aplicação não faz</h2>
+      </div>
+      <article class="panel">
+        <ul class="plain-list">
+          <li>Não promete rentabilidade nem garante que os dividendos vão continuar.</li>
+          <li>Não substitui demonstrações financeiras, relatórios da empresa nem a leitura dos comunicados da B3.</li>
+          <li>Não é uma corretora: não executa ordens e não guarda saldo.</li>
+          <li>Não estima o preço da época de cada pagamento: o dividend yield histórico usa o preço de hoje.</li>
+          <li>Não corrige sozinha particularidades como tarifas reguladas, empresas do mesmo grupo ou pagamentos em dólar.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="perguntas" class="page-section info-section">
+      <div class="section-heading">
+        <p class="eyebrow">Dúvidas comuns</p>
+        <h2>Perguntas frequentes</h2>
+      </div>
+      <div class="panel faq">
+        <details>
+          <summary>Por que o preço justo muda quando escolho outro período?</summary>
+          <p>Porque a média dos dividendos muda. Usar três anos, cinco anos ou todos os anos registrados inclui pagamentos diferentes na conta.</p>
+        </details>
+        <details>
+          <summary>Por que aparece um aviso de ano sem dividendos?</summary>
+          <p>Nos períodos fixos de três e cinco anos, a aplicação precisa dos anos civis encerrados. Se a fonte não trouxe registros para algum ano, ele conta como zero e o aviso informa isso.</p>
+        </details>
+        <details>
+          <summary>O que é data ex-dividendo?</summary>
+          <p>É a data limite para ter a ação e receber aquele pagamento. O Yahoo Finance informa essa data, mas não informa quando o dinheiro foi pago. Por isso alguns cálculos de 12 meses ficam indisponíveis com essa fonte.</p>
+        </details>
+        <details>
+          <summary>Por que a lista cash-yield tem menos de 30 ações?</summary>
+          <p>Porque poucos ativos atendem aos três requisitos: ter dividendos nos três anos fechados, alcançar 6% em cada ano e passar pela verificação de balanço. O limite de 30 é um teto, não uma meta.</p>
+        </details>
+        <details>
+          <summary>O que é o piloto?</summary>
+          <p>É uma execução curta da lista cash-yield com quatro ativos (ITUB4, BBAS3, WEGE3 e VALE3, configuráveis por <code>MARKET_TICKERS</code>). Serve para testar o fluxo sem esperar a varredura completa.</p>
+        </details>
+      </div>
+    </section>
+
+    <footer class="disclaimer">
+      Esta ferramenta possui finalidade exclusivamente educacional. Os dados vêm de fontes externas e podem conter falhas ou atrasos. Não constitui recomendação de compra ou venda de ativos.
+      <a href="#resumo">Voltar ao início da página</a>
+    </footer>
+  </main>
+  <script>
+    const themeToggle = document.getElementById("theme-toggle");
+    const savedTheme = localStorage.getItem("bazin-theme");
+    const darkThemeEnabled = savedTheme !== "light";
+    document.body.dataset.theme = darkThemeEnabled ? "dark" : "light";
+    themeToggle.setAttribute("aria-label", darkThemeEnabled ? "Ativar tema claro" : "Ativar tema escuro");
+    themeToggle.addEventListener("click", () => {
+      const dark = document.body.dataset.theme !== "dark";
+      document.body.dataset.theme = dark ? "dark" : "light";
+      localStorage.setItem("bazin-theme", dark ? "dark" : "light");
+      themeToggle.setAttribute("aria-label", dark ? "Ativar tema claro" : "Ativar tema escuro");
+    });
+  </script>
+</body>
+</html>
