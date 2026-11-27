@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f7fb">
   <title>Cash-yield | Seleção de ações para compra</title>
-  <link rel="stylesheet" href="/static/styles.css?v=13">
+  <link rel="stylesheet" href="/static/styles.css?v=14">
 </head>
 <body data-theme="dark">
   <main class="app-shell">
@@ -45,8 +45,9 @@
           <div><dt>Qualificação</dt><dd>Os três últimos anos encerrados devem ter dividendos pagos, com y1 igual ou superior a 6 em todos, indicando regularidade e consistência.</dd></div>
           <div><dt>Saúde financeira</dt><dd>Ações com dívida líquida/EBITDA acima de 3, EBITDA negativo, caixa operacional negativo, prejuízo (ROE negativo) ou baixa liquidez na bolsa (menos de R$ 1 milhão por dia) são excluídas. Liquidez corrente e P/VP servem de contexto.</dd></div>
           <div><dt>Ordenação</dt><dd>Primeiro as ações aprovadas, depois as com pontos de atenção; em cada grupo, pelo menor y1 dos três anos e, em empate, pelo y1 do último ano.</dd></div>
+          <div><dt>Preço teto</dt><dd>Média dos dividendos dos três últimos anos encerrados dividida pela taxa Bazin configurada (6% por padrão). É o mesmo critério do preço-teto principal da análise detalhada; não inclui a comparação com LTM.</dd></div>
         </dl>
-        <p class="rate-label">Limitações: o y1 histórico usa o preço atual, pois a fonte não fornece o preço da época de cada pagamento. Os indicadores de balanço vêm do Yahoo Finance e podem estar defasados ou ausentes (aparecem como atenção). Tarifas reguladas, notícias, empresas do mesmo grupo e a conversão em dólar exigem verificação manual.</p>
+        <p class="rate-label">Limitações: o y1 histórico usa o preço atual, pois a fonte não fornece o preço da época de cada pagamento. Os indicadores de balanço vêm do Yahoo Finance e podem estar defasados ou ausentes (aparecem como atenção). Tarifas reguladas, empresas do mesmo grupo e a conversão em dólar exigem verificação manual; as notícias exibidas na análise vêm de RSS e também precisam ser conferidas na fonte.</p>
       </article>
 
       <p id="cash-yield-status" class="rate-label" role="status" aria-live="polite"></p>
@@ -54,10 +55,10 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th aria-sort="none"><button class="sort-button" type="button" data-sort="posicao">#</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="ticker">Ticker</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="empresa">Empresa</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="preco_atual">Preço atual</button></th>
+            <th aria-sort="none" title="Média dos dividendos dos três últimos anos fechados dividida pela taxa Bazin configurada."><button class="sort-button" type="button" data-sort="preco_teto">Preço teto</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1">y1 (último ano)</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="y1_minimo">y1 mínimo (3 anos)</button></th>
             <th aria-sort="none"><button class="sort-button" type="button" data-sort="veredito">Veredito</button></th>
@@ -79,6 +80,6 @@
     </section>
     <footer class="disclaimer">Esta ferramenta possui finalidade exclusivamente educacional. A seleção por cash-yield utiliza dividendos históricos, que não garantem resultados futuros. Não constitui recomendação de compra ou venda de ativos.</footer>
   </main>
-  <script src="/static/cash-yield.js?v=8" defer></script>
+  <script src="/static/cash-yield.js?v=11" defer></script>
 </body>
 </html>

@@ -22,6 +22,7 @@ class CashYieldItem(BaseModel):
     ticker: str
     empresa: str
     preco_atual: float
+    preco_teto: float
     y1: float
     y1_minimo: float
     anos: list[YearYieldResponse]
@@ -60,6 +61,19 @@ class PrecoTetoResponse(BaseModel):
     preco_teto_conservador: float
     margem_conservador: float
     observacoes: list[str]
+
+
+class NoticiaResponse(BaseModel):
+    titulo: str
+    resumo: str | None
+    link: str
+    fonte: str
+    publicado_em: datetime | None
+
+
+class NoticiasResponse(BaseModel):
+    itens: list[NoticiaResponse]
+    avisos: list[str]
 
 
 class AnaliseResponse(BaseModel):
