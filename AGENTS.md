@@ -4,6 +4,13 @@ Este arquivo resume o contexto do repositório **Preço Justo Bazin** e orienta 
 
 ---
 
+## Output & Communication Rules
+- **Silent Execution:** Do not narrate your steps, thought process, or tool usage (e.g., never write "I will now check...", "Exploring files...", or "Running command...").
+- **Final Output Only:** Execute all necessary reads, searches, and commands silently. Output only the final result or requested code.
+- **Brevity:** Omit conversational filler, status summaries, and explanations unless explicitly asked.
+
+---
+
 ## 1. Como usar este arquivo
 
 - Trate `tarefa.md`, `README.md` e `docs/` como fontes de verdade do comportamento esperado.

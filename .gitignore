@@ -15,4 +15,4 @@ venv/
 *.key
 data/*.sqlite*
 data/*.db*
-data/cash_yield_cache.json
+doc-specs/
